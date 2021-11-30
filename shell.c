@@ -152,6 +152,52 @@ char** getArgs(int start, int end){
   return currentArguments;
 }
 
+void ls() {
+  printf("doing ls\n");
+}
+
+void chmod() {
+  printf("doing chmod\n");
+}
+
+void mkdir() {
+  printf("doing mkdir\n");
+}
+
+void rmdir_new() {
+  printf("doing rmdir\n");
+}
+
+void cd() {
+  printf("doing cd\n");
+}
+
+void pwd() {
+  printf("doing pwd\n");
+}
+
+void cat() {
+  printf("doing cat\n");
+}
+
+void more() {
+  printf("doing more\n");
+}
+
+void rm() {
+  printf("doing rm\n");
+}
+
+void mount() {
+  printf("doing mount\n");
+}
+
+void unmount() {
+  printf("doing unmount\n");
+}
+
+
+
 int main(){
   char** currentArguments;
   int aftersemi = 0;
@@ -211,32 +257,59 @@ int main(){
         }
       }
 
-      char** currentArgs = getArgs(start, end);
-      pid_t pid;
-      if((pid = fork()) == 0) {
-        //puts the child process in its own process group
-        setpgid(getpid(),0);
-        
-        if( -1 == execvp(currentArgs[0], currentArgs) ){
-          //error message for our use
-          /*char errmsg[64];
-          snprintf( errmsg, sizeof(errmsg), "exec '%s' failed", currentArgs[0] );
-          perror( errmsg );*/
-          //error message for user use
-          printf("%s: command not found\n", currentArgs[0]);
-          for(int i = 0; i < number; i++){
-            free(toks[i]);
+      if(0 == strcmp(toks[0], "ls")) {
+        ls();
+      } else if(0 == strcmp(toks[0], "chmod")) {
+        chmod();
+      } else if(0 == strcmp(toks[0], "mkdir")) {
+        mkdir();
+      } else if(0 == strcmp(toks[0], "rmdir")) {
+        rmdir_new();
+      } else if(0 == strcmp(toks[0], "cd")) {
+        cd();
+      } else if(0 == strcmp(toks[0], "pwd")) {
+        pwd();
+      } else if(0 == strcmp(toks[0], "cat")) {
+        cat();
+      } else if(0 == strcmp(toks[0], "more")) {
+        more();
+      } else if(0 == strcmp(toks[0], "rm")) {
+        rm();
+      } else if(0 == strcmp(toks[0], "mount")) {
+        mount();
+      } else if(0 == strcmp(toks[0], "unmount")) {
+        unmount();
+      } else {
+
+        char** currentArgs = getArgs(start, end);
+        pid_t pid;
+        if((pid = fork()) == 0) {
+          //puts the child process in its own process group
+          setpgid(getpid(),0);
+          
+          if( -1 == execvp(currentArgs[0], currentArgs) ){
+            //error message for our use
+            /*char errmsg[64];
+            snprintf( errmsg, sizeof(errmsg), "exec '%s' failed", currentArgs[0] );
+            perror( errmsg );*/
+            //error message for user use
+            printf("%s: command not found\n", currentArgs[0]);
+            for(int i = 0; i < number; i++){
+              free(toks[i]);
+            }
+            free(toks);
+            exit(0);
           }
-          free(toks);
-          exit(0);
+        } else if (pid > 0) {
+          waitpid(pid, NULL, 0);
         }
-      } else if (pid > 0) {
-        waitpid(pid, NULL, 0);
+
+        for(int i = 0; i < (end - start); i++) {
+          free(currentArgs[i]);
+        }
+        free(currentArgs);
+
       }
-      for(int i = 0; i < (end - start); i++) {
-        free(currentArgs[i]);
-      }
-      free(currentArgs);
 
       commandsRun++;
       tokensExamined = end + 1;
