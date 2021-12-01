@@ -2,6 +2,10 @@
     Simple shell (no backgrounding or job control)
     Handles & and ;, but treats & like a ; since no backgrounding
     No memory errors that I can find!
+
+    built-in commands:
+    - ls only supports listing one directory at a time
+    - mkdir allows names with any characters (doesn't exclude '(', '$', etc))
 */
 
 #include <unistd.h>
@@ -15,8 +19,8 @@
 #include <signal.h>
 #include <sys/wait.h>
 
-#define TRUE  1;
-#define FALSE 0;
+#define TRUE  1
+#define FALSE 0
 
 //global array toks
 char** toks;
@@ -138,7 +142,7 @@ int parser(){
 
 char** getArgs(int start, int end){
   int args = end - start;
-  char** currentArguments = (char**) malloc(sizeof(char*)*(args+1));
+  char** currentArguments = (char**) malloc(sizeof(char*)*((end-start)+1));
 
   currentArguments[args] = NULL;
   int count = 0;
@@ -152,20 +156,21 @@ char** getArgs(int start, int end){
   return currentArguments;
 }
 
-void ls() {
-  printf("doing ls\n");
+void ls(char *fileName, char flags[2]) {
+  printf("doing ls - filename: %s, flags: %s\n", fileName, flags);
 }
 
 void chmod() {
   printf("doing chmod\n");
 }
 
-void mkdir() {
-  printf("doing mkdir\n");
+void mkdir(char *fileName) {
+  printf("doing mkdir - filename: %s\n", fileName);
+  //check if directory already exists
 }
 
-void rmdir_new() {
-  printf("doing rmdir\n");
+void rmdir_new(char *fileName) {
+  printf("doing rmdir - filename: %s\n", fileName);
 }
 
 void cd() {
@@ -257,31 +262,82 @@ int main(){
         }
       }
 
-      if(0 == strcmp(toks[0], "ls")) {
-        ls();
-      } else if(0 == strcmp(toks[0], "chmod")) {
+      char** currentArgs = getArgs(start, end);
+
+      if(0 == strcmp(currentArgs[0], "ls")) {
+        char flags[2] = "\0";
+        int argPos = 1;
+        int flagsSeen = 0;
+        char *fileName = NULL;
+        int skip = FALSE;
+        
+        //goes through each argument and classifies it as filename/flag to feed to ls()
+        while(argPos < (end - start)) {
+          char *arg = currentArgs[argPos];
+          if(arg[0] == '-') {
+            if((arg[1] != 'l' || arg[1] != 'F') && arg[2] != '\0') {
+              printf("ls: invalid option -- '%s'\n'-l' and '-F' are the only supported flags.\n", arg);
+              skip = TRUE;
+              break;
+            }
+            flags[flagsSeen] = currentArgs[argPos][1];
+            flagsSeen++;
+          } else {
+            if(fileName == NULL) {
+              fileName = arg;
+            } else {
+              printf("ls only supports listing one directory - please enter %s on a seperate line\n", arg);
+              break;
+            }
+          }
+          argPos++;
+        }
+
+        if(skip == FALSE) {
+          ls(fileName, flags);
+        }
+      } else if(0 == strcmp(currentArgs[0], "chmod")) {
         chmod();
-      } else if(0 == strcmp(toks[0], "mkdir")) {
-        mkdir();
-      } else if(0 == strcmp(toks[0], "rmdir")) {
-        rmdir_new();
-      } else if(0 == strcmp(toks[0], "cd")) {
+      } else if(0 == strcmp(currentArgs[0], "mkdir")) {
+        int argPos = 1;
+        //makes a directory for each given name
+        while(argPos < (end - start)) {
+          char *arg = currentArgs[argPos];
+          mkdir(arg);
+          argPos++;
+        }
+        //checks if no directory name was given
+        if((end - start) == 1) {
+          printf("mkdir: please specify a directory name\n");
+        }
+      } else if(0 == strcmp(currentArgs[0], "rmdir")) {
+        int argPos = 1;
+        //makes a directory for each given name
+        while(argPos < (end - start)) {
+          char *arg = currentArgs[argPos];
+          rmdir_new(arg);
+          argPos++;
+        }
+        //checks if no directory name was given
+        if((end - start) == 1) {
+          printf("rmdir: please specify a directory name\n");
+        }
+      } else if(0 == strcmp(currentArgs[0], "cd")) {
         cd();
-      } else if(0 == strcmp(toks[0], "pwd")) {
+      } else if(0 == strcmp(currentArgs[0], "pwd")) {
         pwd();
-      } else if(0 == strcmp(toks[0], "cat")) {
+      } else if(0 == strcmp(currentArgs[0], "cat")) {
         cat();
-      } else if(0 == strcmp(toks[0], "more")) {
+      } else if(0 == strcmp(currentArgs[0], "more")) {
         more();
-      } else if(0 == strcmp(toks[0], "rm")) {
+      } else if(0 == strcmp(currentArgs[0], "rm")) {
         rm();
-      } else if(0 == strcmp(toks[0], "mount")) {
+      } else if(0 == strcmp(currentArgs[0], "mount")) {
         mount();
-      } else if(0 == strcmp(toks[0], "unmount")) {
+      } else if(0 == strcmp(currentArgs[0], "unmount")) {
         unmount();
       } else {
 
-        char** currentArgs = getArgs(start, end);
         pid_t pid;
         if((pid = fork()) == 0) {
           //puts the child process in its own process group
@@ -304,12 +360,12 @@ int main(){
           waitpid(pid, NULL, 0);
         }
 
-        for(int i = 0; i < (end - start); i++) {
-          free(currentArgs[i]);
-        }
-        free(currentArgs);
-
       }
+
+      for(int i = 0; i < (end - start); i++) {
+        free(currentArgs[i]);
+      }
+      free(currentArgs);
 
       commandsRun++;
       tokensExamined = end + 1;
