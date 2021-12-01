@@ -6,6 +6,7 @@
     built-in commands:
     - ls only supports listing one directory at a time
     - mkdir allows names with any characters (doesn't exclude '(', '$', etc))
+    - cat doesn't support the echo feature linux does when no file is given
 */
 
 #include <unistd.h>
@@ -158,10 +159,11 @@ char** getArgs(int start, int end){
 
 void ls(char *fileName, char flags[2]) {
   printf("doing ls - filename: %s, flags: %s\n", fileName, flags);
+  //support '.' and '..'
 }
 
-void chmod() {
-  printf("doing chmod\n");
+void chmod(char *fileName, char *permisisons, int directory) {
+  printf("doing chmod - filename: %s, permissions: %s, directory?: %d\n", fileName, permisisons, directory);
 }
 
 void mkdir(char *fileName) {
@@ -173,32 +175,32 @@ void rmdir_new(char *fileName) {
   printf("doing rmdir - filename: %s\n", fileName);
 }
 
-void cd() {
-  printf("doing cd\n");
+void cd(char *filePath) {
+  printf("doing cd - filepath: %s\n", filePath);
 }
 
 void pwd() {
   printf("doing pwd\n");
 }
 
-void cat() {
-  printf("doing cat\n");
+void cat(char **files) {
+  printf("doing cat - first file: %s\n", files[0]);
 }
 
-void more() {
-  printf("doing more\n");
+void more(char **files) {
+  printf("doing more - first file: %s\n", files[0]);
 }
 
-void rm() {
-  printf("doing rm\n");
+void rm(char *fileName) {
+  printf("doing rm - filename: %s\n", fileName);
 }
 
-void mount() {
-  printf("doing mount\n");
+void mount(char *fileSys, char *location) {
+  printf("doing mount - needs to be motified\n");
 }
 
-void unmount() {
-  printf("doing unmount\n");
+void unmount(char *fileSys, char *location) {
+  printf("doing unmount - needs to be modified\n");
 }
 
 
@@ -297,7 +299,31 @@ int main(){
           ls(fileName, flags);
         }
       } else if(0 == strcmp(currentArgs[0], "chmod")) {
-        chmod();
+        int skip = FALSE;
+        int directory = FALSE;
+        char *fileName = NULL;
+        char *permissions = NULL;
+
+        if((end - start) < 3 || (end - start) > 4) {
+          printf("chmod: wrong number of arguments\n");
+          skip = TRUE;
+        } else {
+          permissions = currentArgs[1];
+          if((end - start) == 3) {
+            fileName = currentArgs[2];
+          } else {
+            fileName = currentArgs[3];
+            if(0 != strcmp(currentArgs[2], "-r")) {
+              printf("chmod: unsupported flag\n");
+              skip = TRUE;
+            }
+            directory = TRUE;
+          }
+        }
+
+        if(skip == FALSE) {
+          chmod(fileName, permissions, directory);
+        }
       } else if(0 == strcmp(currentArgs[0], "mkdir")) {
         int argPos = 1;
         //makes a directory for each given name
@@ -312,7 +338,7 @@ int main(){
         }
       } else if(0 == strcmp(currentArgs[0], "rmdir")) {
         int argPos = 1;
-        //makes a directory for each given name
+        //removes the directory with each given name
         while(argPos < (end - start)) {
           char *arg = currentArgs[argPos];
           rmdir_new(arg);
@@ -323,19 +349,60 @@ int main(){
           printf("rmdir: please specify a directory name\n");
         }
       } else if(0 == strcmp(currentArgs[0], "cd")) {
-        cd();
-      } else if(0 == strcmp(currentArgs[0], "pwd")) {
+        char *filePath = NULL;
+        int skip = FALSE;
+        
+        if((end - start) == 2) {
+          filePath = currentArgs[1];
+        } else if((end - start) > 2) {
+          printf("cd: too many arguments\n");
+          skip = TRUE;
+        }
+
+        if(skip == FALSE) {
+          cd(filePath);
+        }
+      } else if(0 == strcmp(currentArgs[0], "pwd")) {        
+        if((end - start) > 1) {
+          printf("pwd: no arguments supported\n");
+        }
         pwd();
       } else if(0 == strcmp(currentArgs[0], "cat")) {
-        cat();
+        if((end - start) == 1) {
+          printf("cat: please enter file(s) to see\n");
+        } else {
+          cat(currentArgs+1);
+        }
       } else if(0 == strcmp(currentArgs[0], "more")) {
-        more();
+        if((end - start) == 1) {
+          printf("cat: please enter file(s) to see\n");
+        } else {
+          more(currentArgs+1);
+        }
       } else if(0 == strcmp(currentArgs[0], "rm")) {
-        rm();
+        int argPos = 1;
+        //removes each file given
+        while(argPos < (end - start)) {
+          char *arg = currentArgs[argPos];
+          rm(arg);
+          argPos++;
+        }
+        //checks if no file name was given
+        if((end - start) == 1) {
+          printf("rm: please specify a file name\n");
+        }
       } else if(0 == strcmp(currentArgs[0], "mount")) {
-        mount();
+        if((end - start) == 3) {
+          mount(currentArgs[1], currentArgs[2]);
+        } else {
+          printf("mount: incorrect number of arguments\n");
+        }
       } else if(0 == strcmp(currentArgs[0], "unmount")) {
-        unmount();
+        if((end - start) == 3) {
+          unmount(currentArgs[1], currentArgs[2]);
+        } else {
+          printf("mount: incorrect number of arguments\n");
+        }
       } else {
 
         pid_t pid;
