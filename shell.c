@@ -193,10 +193,11 @@ void cat(char **files, int num) {
     file = fopen(files[i], "r");
     int n;
     int size = 256;
-    char buffer[size];
+    char buffer[size+1];
     if(file != NULL) {
       while((n = fread(&buffer, 1, size, file)) != 0) {
-        fwrite(&buffer, 1, n, stdout);
+        buffer[n] = '\0';
+        printf("%s", buffer);
       }
     } else {
       printf("cat: %s - no such file or directory\n", files[i]);

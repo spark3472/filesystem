@@ -7,6 +7,6 @@ shell: shell.c
 format: format.c
 	gcc -g -o format format.c
 	
-
 clean:
 	rm shell
+	rm format
