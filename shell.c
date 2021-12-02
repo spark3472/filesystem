@@ -3,6 +3,9 @@
     Handles & and ;, but treats & like a ; since no backgrounding
     No memory errors that I can find!
 
+    questions:
+    - am i allowed to keep using fwrite in cat?
+
     built-in commands:
     - ls only supports listing one directory at a time
     - mkdir allows names with any characters (doesn't exclude '(', '$', etc))
@@ -183,8 +186,23 @@ void pwd() {
   printf("doing pwd\n");
 }
 
-void cat(char **files) {
-  printf("doing cat - first file: %s\n", files[0]);
+void cat(char **files, int num) {
+  
+  FILE *file;
+  for(int i = 0; i < num; i++) {
+    file = fopen(files[i], "r");
+    int n;
+    int size = 256;
+    char buffer[size];
+    if(file != NULL) {
+      while((n = fread(&buffer, 1, size, file)) != 0) {
+        fwrite(&buffer, 1, n, stdout);
+      }
+    } else {
+      printf("cat: %s - no such file or directory\n", files[i]);
+    }
+    printf("\n");
+  }
 }
 
 void more(char **files) {
@@ -371,7 +389,7 @@ int main(){
         if((end - start) == 1) {
           printf("cat: please enter file(s) to see\n");
         } else {
-          cat(currentArgs+1);
+          cat(currentArgs+1, (end-start) - 1);
         }
       } else if(0 == strcmp(currentArgs[0], "more")) {
         if((end - start) == 1) {
