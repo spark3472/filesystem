@@ -15,7 +15,6 @@ typedef struct superblock
 }superblock;
 
 typedef struct inode {
-    char* filename[28];
     int next_inode;
     int protect;
     int nlink;

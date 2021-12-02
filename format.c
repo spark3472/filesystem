@@ -41,38 +41,53 @@ int main(int argc, char** argv)
 
     void* disk = malloc(MEGABYTE*num_megabytes+1);
 
-    /*super->size;
-    super->inode_offset;//inode region
-    super->data_offset;//data region
-    super->swap_offset;//end of file
-    super->free_inode;//link to first inode
-    super->free_block;//link to head of free block list*/
-
     void* ptr = disk;
     ptr += 512;
     superblock* super = (superblock*)ptr;
     super->size = 512;
     super->inode_offset = 1;
 
+    ptr += 512 + 1 * 512;//bootblock + superblock + blocksize * inode_offset
+    
+    int count = 0;
 
+
+    for (int i = 0; i < 64; i++)
+    {
+        inode* node = (inode*)ptr;
+        for (int j = 0; j < 10; j++)
+        {
+            count+=512;
+            void* data_block = disk + 1024 + 1 * 512 + 64 * 100 + 256 + i * 512 + count;
+            node->dblocks[j] = *((int*)data_block);
+        }
+         
+        node->size = 0;
+        ptr+=100;
+    }
 
     FILE* fp = fopen("DISK", "w");
-    int check = ftruncate(fileno(fp), MEGABYTE*num_megabytes);
+
+    size_t size = fwrite(disk, 1, MEGABYTE*num_megabytes, fp);
+
+    fclose(fp);
     
     
-    superblock* block = (superblock*)(disk + 512);
+    /*superblock* block = (superblock*)(disk + 512);
+    inode* node = (inode*)(disk + 1024 + 1*512);
+    printf("%d %d\n", block->size, node->size);*/
 
-    void* for_inode = disk;
-    for_inode += 1024 + 1 * 512;//bootblock + superblock + blocksize * inode_offset
-
-    inode* node = (inode*)for_inode;
+    /*FILE *check = fopen("DISK", "r");
+    void* file = malloc(MEGABYTE*num_megabytes+1);
     
+    size_t read = fread(file, 1, MEGABYTE*num_megabytes, check);
 
-    printf("%d\n", block->size);
-    
+    superblock* to_check = file + 512;
+    printf("superblock size: %d\n", to_check->size);
 
-    if (fp != NULL && check == 0)
+    printf("%zu %zu\n", size, read);
+    if (fp != NULL)
     {
         printf("SUCCESS\n");
-    }
+    }*/
 }
