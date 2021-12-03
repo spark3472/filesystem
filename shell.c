@@ -7,9 +7,11 @@
     - ls only supports listing one directory at a time
     - mkdir allows names with any characters (doesn't exclude '(', '$', etc))
     - cat doesn't support the echo feature linux does when no file is given
+    - more uses enter instead of space and only goes through pages at a time, have to press enter after typing q
 
     mounting a disk????
     - no clue if I did it right
+    - implement manual disk mounting if one not there automatically
 */
 
 #include <unistd.h>
@@ -190,7 +192,6 @@ void pwd() {
 }
 
 void cat(char **files, int num) {
-  
   FILE *file;
   for(int i = 0; i < num; i++) {
     file = fopen(files[i], "r");
@@ -209,8 +210,51 @@ void cat(char **files, int num) {
   }
 }
 
-void more(char **files) {
-  printf("doing more - first file: %s\n", files[0]);
+/*
+Prints a set amount of each file at a time (doesn't support line-by-line paging)
+Press q + enter to exit
+*/
+void more(char **files, int num) {
+  printf("Press enter to page through, and q + enter to exit\n");
+  FILE *file;
+  char c;
+  //for each file...
+  for(int i = 0; i < num; i++) {
+    file = fopen(files[i], "r");
+    //if multiple files, print the name before each
+    if(num > 1) {
+      printf("==========\n%s\n==========\n", files[i]);
+    }
+    if(file == NULL) {
+      printf("more: %s - no such file or directory\n", files[i]);
+    } else {
+      int n;
+      int size = 500;
+      char buffer[size+1];
+      //read a set number of bytes at a time
+      while((n = fread(&buffer, 1, size, file)) != 0) {
+        buffer[n] = '\0';
+        printf("%s", buffer);
+        if(buffer[size-1] != '\n') {
+          char smallBuffer[2];
+          while((n = fread(&smallBuffer, 1, 1, file)) != 0 && smallBuffer[0] != '\n') {
+            printf("%s", smallBuffer);
+          }
+        }
+        c = getchar();
+        if(c == 'q') {
+          return;
+        }
+      }
+    }
+    printf("\n");
+    if(i != num-1) {
+      c = getchar();
+      if(c == 'q') {
+        return;
+      }
+    }
+  }
 }
 
 void rm(char *fileName) {
@@ -233,25 +277,32 @@ int main(int argc, char *argv[]){
   disk = fopen("./SIMPLE_DISK", "rwb");
   if(!disk) {
     perror("fopen");
-    return EXIT_FAILURE;
     mounted = FALSE;
+    //return EXIT_FAILURE;
   } else {
     mounted = TRUE;
+  }
+
+  if(mounted == FALSE) {
+    printf("No disk is mounted, please mount a disk.\n");
   }
 
   char** currentArguments;
   int aftersemi = 0;
   int number;
 
-  int length = 50;
+  //log-on procedure outline
+  /*
+  int length = 21;
   char *username = malloc(length * sizeof(char));
   char *password = malloc(length * sizeof(char));
   printf("Please log on. Username (type anything): ");
-  scanf("%51s", username);
+  scanf("%20s", username);
   while ((getchar()) != '\n');
   printf("Password (type anything): ");
-  scanf("%51s", password);
+  scanf("%20s", password);
   printf("Welcome %s!\n", username);
+  */
 
   while(1){
     number = parser();
@@ -418,9 +469,9 @@ int main(int argc, char *argv[]){
         }
       } else if(0 == strcmp(currentArgs[0], "more")) {
         if((end - start) == 1) {
-          printf("cat: please enter file(s) to see\n");
+          printf("more: please enter file(s) to see\n");
         } else {
-          more(currentArgs+1);
+          more(currentArgs+1, (end-start) - 1);
         }
       } else if(0 == strcmp(currentArgs[0], "rm")) {
         int argPos = 1;
