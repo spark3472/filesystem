@@ -3,13 +3,13 @@
     Handles & and ;, but treats & like a ; since no backgrounding
     No memory errors that I can find!
 
-    questions:
-    - am i allowed to keep using fwrite in cat?
-
     built-in commands:
     - ls only supports listing one directory at a time
     - mkdir allows names with any characters (doesn't exclude '(', '$', etc))
     - cat doesn't support the echo feature linux does when no file is given
+
+    mounting a disk????
+    - no clue if I did it right
 */
 
 #include <unistd.h>
@@ -25,6 +25,9 @@
 
 #define TRUE  1
 #define FALSE 0
+
+int mounted;
+FILE *disk;
 
 //global array toks
 char** toks;
@@ -224,10 +227,31 @@ void unmount(char *fileSys, char *location) {
 
 
 
-int main(){
+int main(int argc, char *argv[]){
+
+  //is this how you mount a disk???
+  disk = fopen("./SIMPLE_DISK", "rwb");
+  if(!disk) {
+    perror("fopen");
+    return EXIT_FAILURE;
+    mounted = FALSE;
+  } else {
+    mounted = TRUE;
+  }
+
   char** currentArguments;
   int aftersemi = 0;
   int number;
+
+  int length = 50;
+  char *username = malloc(length * sizeof(char));
+  char *password = malloc(length * sizeof(char));
+  printf("Please log on. Username (type anything): ");
+  scanf("%51s", username);
+  while ((getchar()) != '\n');
+  printf("Password (type anything): ");
+  scanf("%51s", password);
+  printf("Welcome %s!\n", username);
 
   while(1){
     number = parser();

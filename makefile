@@ -1,4 +1,4 @@
-all: shell format
+all: shell format sampleDisk
 
 
 shell: shell.c
@@ -6,7 +6,11 @@ shell: shell.c
 
 format: format.c
 	gcc -g -o format format.c
+
+sampleDisk: sampleDisk.c 
+	gcc -g -o sampleDisk sampleDisk.c
 	
 clean:
 	rm shell
 	rm format
+	rm sampleDisk
