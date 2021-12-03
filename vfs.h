@@ -22,7 +22,7 @@ typedef struct {
     int					f_stat(vnode_t *vn, struct stat_t *buf, int fd);
     int					f_remove(vnode_t *vn, const char *filename);
     int				    f_opendir(vnode_t *vn, const char *filename);
-    struct dirent_t*	f_readdir(vnode_t *vn, int* directory);
+    struct _DirEntry*	f_readdir(vnode_t *vn, int* directory);
     int					f_closedir(vnode_t *vn, int* directory);
     int					f_mkdir(vnode_t *vn, const char *filename, int mode);
     int					f_rmdir(vnode_t *vn, const char *filename);
