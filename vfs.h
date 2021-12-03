@@ -1,8 +1,13 @@
-//#include "directory.h"
+#include "directory.h"
 #include <stdio.h>
 #include <stddef.h>
 
+#define MAX_FT_SIZE 10000
+
 enum {OREAD, OWRITE, RDWR, APPEND};
+
+
+fileEntry fileTable[MAX_FT_SIZE];
 
 //f_open returns file handle
 //f_opendir returns directory handle
@@ -34,6 +39,15 @@ typedef struct vnode {
     fs_driver_t *driver;
     int inode;			/* hard coding for unix */
 } vnode_t;
+
+typedef struct fileEntry{
+    int entry;
+    vnode_t* vn;
+    int offset;
+    int flag;
+}fileEntry;
+
+
 
 
 
