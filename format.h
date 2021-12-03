@@ -2,6 +2,8 @@
 #define N_DBLOCKS 10
 #define N_IBLOCKS 4
 
+enum {DIRECTORY, FILE, MOUNT};
+
 typedef struct superblock 
 {
     int size;
@@ -17,12 +19,12 @@ typedef struct superblock
 typedef struct inode {
     int next_inode;
     int protect;
+    int file_type;
     int nlink;
     int size;
     int uid;
     int gid;
     int ctime;
-    int mtime;
     int atime;
     int dblocks[N_DBLOCKS];
     int iblocks[N_IBLOCKS];
