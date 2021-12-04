@@ -13,7 +13,6 @@ int main(int argc, char *argv[]) {
     //opening existing disk
     char *filename = "./DISK";
     FILE *inputfile = fopen(filename, "rwb");
-    FILE *outputfile = fopen("SIMPLE_DISK", "wb");
     if(!inputfile) {
         perror("fopen");
         return EXIT_FAILURE;
@@ -21,9 +20,8 @@ int main(int argc, char *argv[]) {
 
     fseek(inputfile, 0L, SEEK_END);
     int size = ftell(inputfile);
-    printf("File size is %d\n", size);
     rewind(inputfile);
-    //reading disk into memory to modift
+    //reading disk into memory to modify
     void *disk = malloc(size);
     
     size_t bytes;
@@ -63,6 +61,7 @@ int main(int argc, char *argv[]) {
     //go to root directory
         //add a directory entry for "numbers"
 
+    FILE *outputfile = fopen(filename, "wb");
     fwrite(disk, size, 1, outputfile);
     fclose(outputfile);
 
