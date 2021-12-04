@@ -3,7 +3,7 @@
 typedef struct _DirEntry {
     char fileName[256];	//the file name (max 256 characters)
     int inodeNum;		//the inode number of the file
-    _DirEntry *nextFile;	//the next file in the directory
+    struct _DirEntry *nextFile;	//the next file in the directory
 } DirEntry;
 
 DirEntry dirTree[MAX_DT_SIZE];

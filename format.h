@@ -14,6 +14,7 @@ typedef struct superblock
     int swap_offset;
     int free_inode;
     int free_block;
+
 }superblock;
 
 typedef struct inode {
