@@ -14,7 +14,7 @@
     mounting a disk????
     - no clue if I did it right
     - implement manual disk mounting if one not there automatically
-    - am I allowed to use fopen there??
+    - am I allowed to use fopen to mount??
 */
 
 #include <unistd.h>
@@ -114,7 +114,6 @@ char* line;
 char* shell_prompt = "shell> ";
 int parser(){
   int n = 0;
-  int i = 0;
   //valgrind doesn't like this line??
   line = readline(shell_prompt);
   //ctrl-d
@@ -152,6 +151,9 @@ int parser(){
   return n;
 }
 
+/*
+Isolates and returns part of the typed command line (from position start to end)
+*/
 char** getArgs(int start, int end){
   int args = end - start;
   char** currentArguments = (char**) malloc(sizeof(char*)*((end-start)+1));
@@ -246,6 +248,7 @@ void more(char **files, int num) {
           }
         }
         c = getchar();
+        //if q typed, exit
         if(c == 'q') {
           return;
         }
@@ -254,6 +257,7 @@ void more(char **files, int num) {
     printf("\n");
     if(i != num-1) {
       c = getchar();
+      //if q typed, exit
       if(c == 'q') {
         return;
       }
@@ -281,6 +285,7 @@ int main(int argc, char *argv[]){
   if(access("./DISK", F_OK ) == 0) {
     // file exists
     // mount
+    disk = fopen("./DISK", "rwb");
   } else {
     printf("No disk was found, please use \"format\" to create a disk.\n");
     printf("To format a disk, type \"format <name of file>\"\n");
@@ -300,10 +305,8 @@ int main(int argc, char *argv[]){
   printf("Welcome %s!\n", username);
   */
 
-  char** currentArguments;
-  int aftersemi = 0;
+  //int aftersemi = 0;
   int number;
-
 
   while(1){
     number = parser();
@@ -342,7 +345,7 @@ int main(int argc, char *argv[]){
     int commandsRun = 0;
     while(tokensExamined < number) {
       //background the job?
-      int background = 0;
+      //int background = 0;
       //start and end of the current command section
       int start = 0;
       int end = number;
@@ -354,9 +357,9 @@ int main(int argc, char *argv[]){
 
       if(commandsRun < ampOrSemi) {
         end = ampSemiPlaces[commandsRun][0];
-        if(ampSemiPlaces[commandsRun][1] == '&') {
+        /*if(ampSemiPlaces[commandsRun][1] == '&') {
           background = 1;
-        }
+        }*/
       }
 
       char** currentArgs = getArgs(start, end);
