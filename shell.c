@@ -1,3 +1,5 @@
+//TO-RUN: make, ./format DISK, ./sampleDisk
+
 /*
     Simple shell (no backgrounding or job control)
     Handles & and ;, but treats & like a ; since no backgrounding
@@ -12,6 +14,7 @@
     mounting a disk????
     - no clue if I did it right
     - implement manual disk mounting if one not there automatically
+    - am I allowed to use fopen there??
 */
 
 #include <unistd.h>
@@ -235,6 +238,7 @@ void more(char **files, int num) {
       while((n = fread(&buffer, 1, size, file)) != 0) {
         buffer[n] = '\0';
         printf("%s", buffer);
+        //continue until the next new line
         if(buffer[size-1] != '\n') {
           char smallBuffer[2];
           while((n = fread(&smallBuffer, 1, 1, file)) != 0 && smallBuffer[0] != '\n') {
@@ -274,22 +278,14 @@ void unmount(char *fileSys, char *location) {
 int main(int argc, char *argv[]){
 
   //is this how you mount a disk???
-  disk = fopen("./SIMPLE_DISK", "rwb");
-  if(!disk) {
-    perror("fopen");
-    mounted = FALSE;
-    //return EXIT_FAILURE;
+  if(access("./DISK", F_OK ) == 0) {
+    // file exists
+    // mount
   } else {
-    mounted = TRUE;
+    printf("No disk was found, please use \"format\" to create a disk.\n");
+    printf("To format a disk, type \"format <name of file>\"\n");
+    //look for user input
   }
-
-  if(mounted == FALSE) {
-    printf("No disk is mounted, please mount a disk.\n");
-  }
-
-  char** currentArguments;
-  int aftersemi = 0;
-  int number;
 
   //log-on procedure outline
   /*
@@ -303,6 +299,11 @@ int main(int argc, char *argv[]){
   scanf("%20s", password);
   printf("Welcome %s!\n", username);
   */
+
+  char** currentArguments;
+  int aftersemi = 0;
+  int number;
+
 
   while(1){
     number = parser();
