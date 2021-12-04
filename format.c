@@ -38,39 +38,88 @@ int main(int argc, char** argv)
         }
         
     }
-
-    void* disk = malloc(MEGABYTE*num_megabytes+1);
+    //int diskSize = MEGABYTE*num_megabytes+1;
+    int diskSize = MEGABYTE*num_megabytes;
+    void* disk = malloc(diskSize);
 
     void* ptr = disk;
+
+    //parameterize number of inodes so can adjust for bigger disks
+    int numInodes = 64;
+
+    //getting to start of superblock
     ptr += 512;
     superblock* super = (superblock*)ptr;
-    super->size = 512;
+    super->block_size = 512;
+    //why is it offset by 1?
     super->inode_offset = 1;
+    super->data_offset = ((numInodes * sizeof(inode)) / super->block_size) + 1 + super->inode_offset;
 
-    ptr += 512 + 1 * 512;//bootblock + superblock + blocksize * inode_offset
-    
-    int count = 0;
+    ptr += 512 + super->inode_offset * super->block_size; //bootblock + superblock + blocksize * inode_offset
 
+    //setting up inode region
+    /*int count = 0;
+    inode* current = (inode*)ptr;
+    inode* next = (inode*)(ptr + sizeof(inode));
+    while (count < numInodes - 1) {
+        current->nlink = 0;
+        current->next_inode = *((int*)next);
 
-    for (int i = 0; i < 64; i++)
-    {
-        inode* node = (inode*)ptr;
-        for (int j = 0; j < 10; j++)
-        {
-            count+=512;
-            void* data_block = disk + 1024 + 1 * 512 + 64 * 100 + 256 + i * 512 + count;
-            node->dblocks[j] = *((int*)data_block);
-        }
-         
-        node->size = 0;
-        ptr+=100;
+        current++;
+        next++;
+        count++;
     }
+    current->nlink = 0;
+    current->next_inode = -1;
+    */
 
-    FILE* fp = fopen("DISK", "w");
+    //setting up inode region attempt two - next_inode contains the number of the next
+        //free inode instead of a pointer (what hw 6 does I think)
+    int count = 0;
+    inode* current = (inode*)ptr;
+    while (count < numInodes-1) {
+        current->nlink = 0;
+        current->next_inode = count + 1;
 
-    size_t size = fwrite(disk, 1, MEGABYTE*num_megabytes, fp);
+        current++;
+        count++;
+    }
+    current->nlink = 0;
+    current->next_inode = -1;
+    
+    //setting up the free block region
+    void* dataBlock = disk + super->data_offset * super->block_size;
+    int blocks = 0;
+    //while not exceding the disk size, each free block points to the next
+    while ((dataBlock - disk) <= (diskSize - (super->block_size)*2)){
+        *((int*)dataBlock) = blocks+1;
+        blocks++;
+        dataBlock += super->block_size;
+    }
+    //the last block points to 0
+    *((int*)dataBlock) = -1;
+
+    //setting up the root directory
+    inode *root = disk + 1024 + super->inode_offset+super->block_size;
+    root->next_inode = -1;
+    root->nlink = 1;
+    root->file_type = DIRECTORY_TYPE;
+    //first data block
+    root->dblocks[0] = 0;
+    //reset to empty
+    //*((int*)(disk + 1024 + super->data_offset+super->block_size)) = (int*)NULL;
+
+    //start of frees are now first and second
+    super->free_block = 1;
+    super->free_inode = 1;
+
+    FILE* fp = fopen("DISK", "wb");
+
+    size_t size = fwrite(disk, 1, diskSize, fp);
 
     fclose(fp);
+    
+    free(disk);
     
     
     /*superblock* block = (superblock*)(disk + 512);

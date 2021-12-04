@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
 
     //info from superblock
     superblock *super = (superblock*)(disk + 512);
-    int blockSize = super->size;
+    int blockSize = super->block_size;
     int inode_offset = super->inode_offset;
     int data_offset = super->data_offset;
     int inode_start = 1024 + inode_offset*blockSize;
