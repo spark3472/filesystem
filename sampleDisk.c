@@ -8,6 +8,7 @@
 #include <time.h>
 #include <string.h>
 #include "format.h"
+#include "directory.h"
 
 int main(int argc, char *argv[]) {
     //opening existing disk
@@ -40,25 +41,29 @@ int main(int argc, char *argv[]) {
     int inode_start = 1024 + inode_offset*blockSize;
     int data_start = 1024 + data_offset*blockSize;
 
+
+    inode *root = (inode*)(disk + inode_start);
+    DirEntry *rootData = (DirEntry*)(disk + data_start + root->dblocks[0]*super->block_size);
+
     //creating a file and updating the free info
-    inode *firstInode = (inode*)(disk + inode_start);
-    inode *firstFree = (inode*)(disk + super->free_inode);
-    super->inode_offset++;
+    inode *firstFree = (inode*)(disk + inode_start + super->free_inode*sizeof(inode));
     super->free_inode = firstFree->next_inode;
 
-    char *contents = "1 2 3";
+    char *contents = "abc";
 
     //putting in correct info in the inode
     firstFree->next_inode = -1;
     firstFree->size = sizeof(contents) / 8;
     firstFree->ctime = time(NULL);
     firstFree->dblocks[0] = *((int*)(disk + data_start + super->free_block * blockSize));
-    //setting the first free block to the next one
+    //setting the first free block to the next one (which was stored as a pointer)
     super->free_block = *((int*)(disk + data_start + super->free_block * blockSize));
     //made "file"
     memcpy((disk + data_start + firstFree->dblocks[0]), contents, sizeof(contents));
 
-    //go to root directory
+    //set up directory entry
+    strcpy(rootData->fileName,"numbers.txt");
+    rootData->inodeNum = 1;
         //add a directory entry for "numbers"
 
     FILE *outputfile = fopen(filename, "wb");
