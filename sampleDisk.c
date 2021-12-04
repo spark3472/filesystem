@@ -1,5 +1,5 @@
 /*
-    Creates a simple sample disks with one file in the root that contains "1 2 3"
+    Creates a simple sample disks with one file in the root that contains "abc"
     - currently just creates the file and doesn't deal with the root directory
 */
 
@@ -62,9 +62,8 @@ int main(int argc, char *argv[]) {
     memcpy((disk + data_start + firstFree->dblocks[0]), contents, sizeof(contents));
 
     //set up directory entry
-    strcpy(rootData->fileName,"numbers.txt");
+    strcpy(rootData->fileName,"letters.txt");
     rootData->inodeNum = 1;
-        //add a directory entry for "numbers"
 
     FILE *outputfile = fopen(filename, "wb");
     fwrite(disk, size, 1, outputfile);
