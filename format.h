@@ -2,11 +2,11 @@
 #define N_DBLOCKS 10
 #define N_IBLOCKS 4
 
-enum {DIRECTORY, FILE, MOUNT};
+enum {DIRECTORY_TYPE, FILE_TYPE, MOUNT_TYPE};
 
 typedef struct superblock 
 {
-    int size;
+    int block_size;
     int super_user;
     int regular_user;
     int inode_offset;

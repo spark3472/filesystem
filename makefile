@@ -2,7 +2,7 @@ all: shell format sampleDisk
 
 
 shell: shell.c
-	gcc -g -o shell shell.c -lreadline
+	gcc -Wall -g -o shell shell.c -lreadline
 
 format: format.c
 	gcc -g -o format format.c
