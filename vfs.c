@@ -1,12 +1,17 @@
 #include "vfs.h"
-
+#include <fcntl.h>
+#include <stdio.h>
 //make tree root global in shell
 vnode_t *root;
-
+enum {OREAD, OREADCREAT, OWRITE, OWRITECREATE, OAPPEND, OAPPENDCREAT};
 int f_open(vnode_t *vn, char* path, int flag)
 {
+    //error-checking to do:
+        //wrong flag
+        //file does not exist (flag based)
 
-  
+
+    //for now, assume file exists and is a simple read flag
 }
 
 
