@@ -1,6 +1,12 @@
 //TO-RUN: make, ./format DISK, ./sampleDisk
 
 /*
+Links to try to fix VSC thing:
+https://askubuntu.com/questions/1022923/cannot-open-visual-studio-code
+
+*/
+
+/*
     Simple shell (no backgrounding or job control)
     Handles & and ;, but treats & like a ; since no backgrounding
     No memory errors that I can find!
@@ -15,6 +21,9 @@
     - no clue if I did it right
     - implement manual disk mounting if one not there automatically
     - am I allowed to use fopen to mount??
+
+    redirection
+    - how do I identify '>>'.....
 */
 
 #include <unistd.h>
@@ -48,11 +57,29 @@ typedef struct tokenizer{
   char *pos;
 } TOKENIZER;
 
+/* Identifies if a symbol is one of the set delimiters
+ * @param symbol The character to check
+ * Returns true if the character is a delimiter
+ */
+int isDelimiter(char symbol) {
+  int numDelim = 5;
+  //implement '>>' later
+  char delimiters[] = {'&', ';', '>', '<', '>'};
+  int included = FALSE;
+
+  for(int i = 0; i < numDelim; i++) {
+    if(symbol == delimiters[i]) {
+      included = TRUE;
+    }
+  }
+
+  return included;
+}
+
 /* Gets the next delimiter or the string between delimiters
  * @param tokenizer
  * @return Pointer to the string between the delimiters or the delimiter
  */
-
 int a = 0;
 char* get_next_token(TOKENIZER *v){
 	//if current char is a delimiter, just return it
@@ -72,17 +99,17 @@ char* get_next_token(TOKENIZER *v){
     v->pos++;
   }
   //add other parsing here
-  if (*(v->pos) == '&'||*(v->pos)==';'){
+  if (isDelimiter(*(v->pos)) == TRUE){
     b++;
     v->pos++;
   }else {
     while(*(v->pos) != '\0'){
-      if (*(v->pos) == '&'||*(v->pos) == ';'|| *(v->pos)== ' '){
+      if (isDelimiter(*(v->pos)) == TRUE|| *(v->pos)== ' '){
         break;
-        }else{
-          v->pos++;
-          b++;
-          }
+      } else{
+        v->pos++;
+        b++;
+      }
     }
   }
   string = (char*)malloc((b+1)*sizeof(char));
@@ -321,8 +348,7 @@ int main(int argc, char *argv[]){
       exit(0);
     }
 
-    //int count = 0;
-    //int place = 0;
+    //holds the number of ampersands and semicolons in the typed command
     int ampOrSemi = 0;
     for (int i = 0; i < number; i++){
       if ((strcmp(toks[i], "&") == 0) || (strcmp(toks[i], ";") == 0)){
@@ -340,29 +366,52 @@ int main(int argc, char *argv[]){
         countPlaces++;
       }      
     }
-    
+
+    printf("====\n");
+    for(int i = 0; i < number; i++) {
+      printf("%s\n", toks[i]);
+    } 
+    printf("====\n");
+
     int tokensExamined = 0;
     int commandsRun = 0;
     while(tokensExamined < number) {
-      //background the job?
-      //int background = 0;
       //start and end of the current command section
       int start = 0;
       int end = number;
 
+      /* Update the start and end position of the current command if it contains
+       * an ampersand or semicolon 
+       */
       if(commandsRun > 0) {
         //start one after the last & or ;
         start = ampSemiPlaces[commandsRun-1][0] + 1;
       } 
-
       if(commandsRun < ampOrSemi) {
         end = ampSemiPlaces[commandsRun][0];
-        /*if(ampSemiPlaces[commandsRun][1] == '&') {
-          background = 1;
-        }*/
       }
 
+      //get the current section of the typed command
       char** currentArgs = getArgs(start, end);
+
+
+      /* DO REDIRECTION HERE */
+      char redirection = malloc(4 * sizeof(char));
+      redirection = "no";
+
+      //Check if the subsection contains <, >, or >> :
+        //If it doesn't, continue as normal
+        //If it does:
+          //Seperate out the real command (based on if redirecting input or output)
+            //So update start/end and currentArgs
+          //Set redirection to "in" or "out"
+          //Identify the file to get input to/from
+            //char *fileRedirect = currentArgs[...];
+
+
+        //https://stackoverflow.com/questions/29154056/redirect-stdout-to-a-file ???
+        //https://www.unix.com/programming/268879-c-unix-how-redirect-stdout-file-c-code.html 
+
 
       if(0 == strcmp(currentArgs[0], "ls")) {
         char flags[2] = "\0";
@@ -371,7 +420,7 @@ int main(int argc, char *argv[]){
         char *fileName = NULL;
         int skip = FALSE;
         
-        //goes through each argument and classifies it as filename/flag to feed to ls()
+        //goes through each argument and classifies it as a filename or flag to feed to ls()
         while(argPos < (end - start)) {
           char *arg = currentArgs[argPos];
           if(arg[0] == '-') {
@@ -531,6 +580,7 @@ int main(int argc, char *argv[]){
         free(currentArgs[i]);
       }
       free(currentArgs);
+      free(redirection);
 
       commandsRun++;
       tokensExamined = end + 1;
