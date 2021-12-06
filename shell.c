@@ -1,6 +1,12 @@
 //TO-RUN: make, ./format DISK, ./sampleDisk
 
 /*
+Links to try to fix VSC thing:
+https://askubuntu.com/questions/1022923/cannot-open-visual-studio-code
+
+*/
+
+/*
     Simple shell (no backgrounding or job control)
     Handles & and ;, but treats & like a ; since no backgrounding
     No memory errors that I can find!
@@ -15,6 +21,9 @@
     - no clue if I did it right
     - implement manual disk mounting if one not there automatically
     - am I allowed to use fopen to mount??
+
+    redirection
+    - how do I identify '>>'.....
 */
 
 #include <unistd.h>
@@ -32,13 +41,16 @@
 #define TRUE  1
 #define FALSE 0
 
+#define FILELENGTH 256
+
 int mounted;
 FILE *disk;
 
 //global array toks
-char** toks;
-//start of current command section (breaks up & and ; lines)
-char** traverser;
+char **toks;
+
+char *workingDirectory;
+char *parentDirectory;
 
 /******PARSER******/
 
@@ -49,11 +61,29 @@ typedef struct tokenizer{
   char *pos;
 } TOKENIZER;
 
+/* Identifies if a symbol is one of the set delimiters
+ * @param symbol The character to check
+ * Returns true if the character is a delimiter
+ */
+int isDelimiter(char symbol) {
+  int numDelim = 5;
+  //implement '>>' later
+  char delimiters[] = {'&', ';', '>', '<', '>'};
+  int included = FALSE;
+
+  for(int i = 0; i < numDelim; i++) {
+    if(symbol == delimiters[i]) {
+      included = TRUE;
+    }
+  }
+
+  return included;
+}
+
 /* Gets the next delimiter or the string between delimiters
  * @param tokenizer
  * @return Pointer to the string between the delimiters or the delimiter
  */
-
 int a = 0;
 char* get_next_token(TOKENIZER *v){
 	//if current char is a delimiter, just return it
@@ -73,17 +103,23 @@ char* get_next_token(TOKENIZER *v){
     v->pos++;
   }
   //add other parsing here
-  if (*(v->pos) == '&'||*(v->pos)==';'){
+  if (isDelimiter(*(v->pos)) == TRUE){
+    if(*(v->pos) == '>') {
+      if(*(v->pos + 1) == '>') {
+        b++;
+        v->pos++;
+      }
+    }
     b++;
     v->pos++;
   }else {
     while(*(v->pos) != '\0'){
-      if (*(v->pos) == '&'||*(v->pos) == ';'|| *(v->pos)== ' '){
+      if (isDelimiter(*(v->pos)) == TRUE || *(v->pos) == ' '){
         break;
-        }else{
-          v->pos++;
-          b++;
-          }
+      } else {
+        v->pos++;
+        b++;
+      }
     }
   }
   string = (char*)malloc((b+1)*sizeof(char));
@@ -191,10 +227,15 @@ void rmdir_new(char *fileName) {
 
 void cd(char *filePath) {
   printf("doing cd - filepath: %s\n", filePath);
+  //open new directory
+    //f_opendir?
+  //
+  
 }
 
 void pwd() {
-  printf("doing pwd\n");
+  //printf("doing pwd\n");
+  printf("%s\n", workingDirectory);
 }
 
 void cat(char **files, int num) {
@@ -202,7 +243,7 @@ void cat(char **files, int num) {
   for(int i = 0; i < num; i++) {
     file = fopen(files[i], "r");
     int n;
-    int size = 256;
+    int size = FILELENGTH;
     char buffer[size+1];
     if(file != NULL) {
       while((n = fread(&buffer, 1, size, file)) != 0) {
@@ -272,6 +313,9 @@ void rm(char *fileName) {
 
 void mount(char *fileSys, char *location) {
   printf("doing mount - needs to be motified\n");
+  //grafting disk onto a point in existing file tree
+    // treat disk like located at particular folder
+    // if stuff already there, gets hidden until disk unmounted
 }
 
 void unmount(char *fileSys, char *location) {
@@ -286,12 +330,29 @@ int main(int argc, char *argv[]){
   if(access("./DISK", F_OK ) == 0) {
     // file exists
     // mount
-    disk = fopen("./DISK", "rwb");
+
+    // set up and get ready to read stuff 
+    // set up directory structure so root is root of disk
+    // do log in
+    //int outcome = f_mount("./DISK", "/");
+    /*if(outcome == -1) {
+      printf("Error mounting disk\n");
+    }
+    */
   } else {
     printf("No disk was found, please use \"format\" to create a disk.\n");
     printf("To format a disk, type \"format <name of file>\"\n");
     //look for user input
   }
+
+  int maxPathSize = FILELENGTH;
+  workingDirectory = malloc(maxPathSize * sizeof(char));
+  parentDirectory = malloc(maxPathSize * sizeof(char));
+
+  strcpy(workingDirectory, "/");
+  strcpy(parentDirectory, "/");
+
+  //put at user directory later
 
   //log-on procedure outline
   /*
@@ -322,8 +383,7 @@ int main(int argc, char *argv[]){
       exit(0);
     }
 
-    //int count = 0;
-    //int place = 0;
+    //holds the number of ampersands and semicolons in the typed command
     int ampOrSemi = 0;
     for (int i = 0; i < number; i++){
       if ((strcmp(toks[i], "&") == 0) || (strcmp(toks[i], ";") == 0)){
@@ -341,29 +401,85 @@ int main(int argc, char *argv[]){
         countPlaces++;
       }      
     }
-    
+
+    printf("====\n");
+    for(int i = 0; i < number; i++) {
+      printf("%s\n", toks[i]);
+    } 
+    printf("====\n");
+
     int tokensExamined = 0;
     int commandsRun = 0;
+    char *redirection = malloc(4 * sizeof(char));
     while(tokensExamined < number) {
-      //background the job?
-      //int background = 0;
       //start and end of the current command section
       int start = 0;
       int end = number;
 
+      /* Update the start and end position of the current command if it contains
+       * an ampersand or semicolon */
       if(commandsRun > 0) {
         //start one after the last & or ;
         start = ampSemiPlaces[commandsRun-1][0] + 1;
       } 
-
       if(commandsRun < ampOrSemi) {
         end = ampSemiPlaces[commandsRun][0];
-        /*if(ampSemiPlaces[commandsRun][1] == '&') {
-          background = 1;
-        }*/
       }
 
+      //get the current section of the typed command
       char** currentArgs = getArgs(start, end);
+      int length = end - start;
+
+      /* DO REDIRECTION HERE */
+      //char *redirection = malloc(4 * sizeof(char));
+      strcpy(redirection, "no");
+      char *fileRedirect = malloc(FILELENGTH * sizeof(char));
+
+      //Check if the subsection contains <, >, or >> and update currentArgs and redirect info accordingly
+      int redir = FALSE;
+      for (int i = 0; i < length; i++){
+        if ((strcmp(currentArgs[i], ">") == 0) || (strcmp(currentArgs[i], "<") == 0) || (strcmp(currentArgs[i], ">>") == 0)){
+          if(redir == TRUE) {
+            //MODIFY m_error = ....
+            printf("Multiple redirection not supported.\n");
+            continue;
+          }
+          if (i == length - 1) {
+            printf("Please enter a file after the redirection");
+            continue;
+          }
+          redir = TRUE;
+          if(strcmp(currentArgs[i], "<") == 0) {
+            strcpy(redirection, "in");
+          } else if(strcmp(currentArgs[i], ">") == 0) {
+            strcpy(redirection, "out");
+          } else {
+            //append to end of out file
+            strcpy(redirection, "end");
+          }
+          fileRedirect = currentArgs[length - 1];
+
+          //free old args and make the new ones (excluding redirection info)
+          for(int i = 0; i < length; i++) {
+            free(currentArgs[i]);
+          }
+          free(currentArgs);
+          currentArgs = getArgs(start, end - 2);
+          length -= 2;
+        }      
+      }
+        //If it doesn't, continue as normal
+        //If it does:
+          //Seperate out the real command (based on if redirecting input or output)
+            //So update start/end and currentArgs
+          //Set redirection to "in" or "out"
+          //Identify the file to get input to/from
+            //char *fileRedirect = currentArgs[...];
+        //can create temporary unix files
+
+        //https://stackoverflow.com/questions/29154056/redirect-stdout-to-a-file ???
+        //https://www.unix.com/programming/268879-c-unix-how-redirect-stdout-file-c-code.html 
+
 
       if(0 == strcmp(currentArgs[0], "ls")) {
         char flags[2] = "\0";
@@ -372,8 +488,8 @@ int main(int argc, char *argv[]){
         char *fileName = NULL;
         int skip = FALSE;
         
-        //goes through each argument and classifies it as filename/flag to feed to ls()
-        while(argPos < (end - start)) {
+        //goes through each argument and classifies it as a filename or flag to feed to ls()
+        while(argPos < length) {
           char *arg = currentArgs[argPos];
           if(arg[0] == '-') {
             if((arg[1] != 'l' || arg[1] != 'F') && arg[2] != '\0') {
@@ -403,12 +519,12 @@ int main(int argc, char *argv[]){
         char *fileName = NULL;
         char *permissions = NULL;
 
-        if((end - start) < 3 || (end - start) > 4) {
+        if(length < 3 || length > 4) {
           printf("chmod: wrong number of arguments\n");
           skip = TRUE;
         } else {
           permissions = currentArgs[1];
-          if((end - start) == 3) {
+          if(length == 3) {
             fileName = currentArgs[2];
           } else {
             fileName = currentArgs[3];
@@ -426,34 +542,34 @@ int main(int argc, char *argv[]){
       } else if(0 == strcmp(currentArgs[0], "mkdir")) {
         int argPos = 1;
         //makes a directory for each given name
-        while(argPos < (end - start)) {
+        while(argPos < length) {
           char *arg = currentArgs[argPos];
           mkdir(arg);
           argPos++;
         }
         //checks if no directory name was given
-        if((end - start) == 1) {
+        if(length == 1) {
           printf("mkdir: please specify a directory name\n");
         }
       } else if(0 == strcmp(currentArgs[0], "rmdir")) {
         int argPos = 1;
         //removes the directory with each given name
-        while(argPos < (end - start)) {
+        while(argPos < length) {
           char *arg = currentArgs[argPos];
           rmdir_new(arg);
           argPos++;
         }
         //checks if no directory name was given
-        if((end - start) == 1) {
+        if(length == 1) {
           printf("rmdir: please specify a directory name\n");
         }
       } else if(0 == strcmp(currentArgs[0], "cd")) {
         char *filePath = NULL;
         int skip = FALSE;
         
-        if((end - start) == 2) {
+        if(length == 2) {
           filePath = currentArgs[1];
-        } else if((end - start) > 2) {
+        } else if(length > 2) {
           printf("cd: too many arguments\n");
           skip = TRUE;
         }
@@ -462,42 +578,42 @@ int main(int argc, char *argv[]){
           cd(filePath);
         }
       } else if(0 == strcmp(currentArgs[0], "pwd")) {        
-        if((end - start) > 1) {
+        if(length > 1) {
           printf("pwd: no arguments supported\n");
         }
         pwd();
       } else if(0 == strcmp(currentArgs[0], "cat")) {
-        if((end - start) == 1) {
+        if(length == 1) {
           printf("cat: please enter file(s) to see\n");
         } else {
-          cat(currentArgs+1, (end-start) - 1);
+          cat(currentArgs+1, length - 1);
         }
       } else if(0 == strcmp(currentArgs[0], "more")) {
-        if((end - start) == 1) {
+        if(length == 1) {
           printf("more: please enter file(s) to see\n");
         } else {
-          more(currentArgs+1, (end-start) - 1);
+          more(currentArgs+1, length - 1);
         }
       } else if(0 == strcmp(currentArgs[0], "rm")) {
         int argPos = 1;
         //removes each file given
-        while(argPos < (end - start)) {
+        while(argPos < length) {
           char *arg = currentArgs[argPos];
           rm(arg);
           argPos++;
         }
         //checks if no file name was given
-        if((end - start) == 1) {
+        if(length == 1) {
           printf("rm: please specify a file name\n");
         }
       } else if(0 == strcmp(currentArgs[0], "mount")) {
-        if((end - start) == 3) {
+        if(length == 3) {
           mount(currentArgs[1], currentArgs[2]);
         } else {
           printf("mount: incorrect number of arguments\n");
         }
       } else if(0 == strcmp(currentArgs[0], "unmount")) {
-        if((end - start) == 3) {
+        if(length == 3) {
           unmount(currentArgs[1], currentArgs[2]);
         } else {
           printf("mount: incorrect number of arguments\n");
@@ -520,6 +636,8 @@ int main(int argc, char *argv[]){
               free(toks[i]);
             }
             free(toks);
+            free(redirection);
+            
             exit(0);
           }
         } else if (pid > 0) {
@@ -528,10 +646,12 @@ int main(int argc, char *argv[]){
 
       }
 
-      for(int i = 0; i < (end - start); i++) {
+      for(int i = 0; i < length; i++) {
         free(currentArgs[i]);
       }
       free(currentArgs);
+      //free(redirection);
+      free(fileRedirect);
 
       commandsRun++;
       tokensExamined = end + 1;
@@ -540,6 +660,7 @@ int main(int argc, char *argv[]){
       free(toks[i]);
     }
     free(toks);
+    free(redirection);
   }
 
   for(int i = 0; i < number; i++){
@@ -547,6 +668,9 @@ int main(int argc, char *argv[]){
   }
   free(toks);
   free(line);
+
+  free(workingDirectory);
+  free(parentDirectory);
 
 }
 
