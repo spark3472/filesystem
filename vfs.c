@@ -180,8 +180,13 @@ int f_rmdir(vnode_t *vn, const char *filename)
 {
 
 }
-int f_mount(vnode_t *vn, const char *type, const char *dir, int flags, void *data)
+int f_mount(char* filename)
 {
+    fp = fopen("DISK", "r+");
+    if (fp == NULL)
+    {
+        return -1;
+    }
 
 }
 int f_umount(vnode_t *vn, const char *dir, int flags)
