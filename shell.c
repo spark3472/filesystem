@@ -40,6 +40,8 @@ https://askubuntu.com/questions/1022923/cannot-open-visual-studio-code
 #define TRUE  1
 #define FALSE 0
 
+#define FILELENGTH 256
+
 int mounted;
 FILE *disk;
 
@@ -240,7 +242,7 @@ void cat(char **files, int num) {
   for(int i = 0; i < num; i++) {
     file = fopen(files[i], "r");
     int n;
-    int size = 256;
+    int size = FILELENGTH;
     char buffer[size+1];
     if(file != NULL) {
       while((n = fread(&buffer, 1, size, file)) != 0) {
@@ -342,7 +344,7 @@ int main(int argc, char *argv[]){
     //look for user input
   }
 
-  int maxPathSize = 256;
+  int maxPathSize = FILELENGTH;
   workingDirectory = malloc(maxPathSize * sizeof(char));
   parentDirectory = malloc(maxPathSize * sizeof(char));
 
@@ -414,8 +416,7 @@ int main(int argc, char *argv[]){
       int end = number;
 
       /* Update the start and end position of the current command if it contains
-       * an ampersand or semicolon 
-       */
+       * an ampersand or semicolon */
       if(commandsRun > 0) {
         //start one after the last & or ;
         start = ampSemiPlaces[commandsRun-1][0] + 1;
@@ -426,26 +427,44 @@ int main(int argc, char *argv[]){
 
       //get the current section of the typed command
       char** currentArgs = getArgs(start, end);
-
+      int length = end - start;
 
       /* DO REDIRECTION HERE */
       //char *redirection = malloc(4 * sizeof(char));
-      strcpy(redirection, "no\0");
+      strcpy(redirection, "no");
+      char *fileRedirect = malloc(FILELENGTH * sizeof(char));
 
-      //Check if the subsection contains <, >, or >> :
+      //Check if the subsection contains <, >, or >> and update currentArgs and redirect info accordingly
       int redir = FALSE;
-      for (int i = 0; i < (end - start); i++){
+      for (int i = 0; i < length; i++){
         if ((strcmp(currentArgs[i], ">") == 0) || (strcmp(currentArgs[i], "<") == 0) || (strcmp(currentArgs[i], ">>") == 0)){
           if(redir == TRUE) {
             //MODIFY m_error = ....
             printf("Multiple redirection not supported.\n");
             continue;
           }
+          if (i == length - 1) {
+            printf("Please enter a file after the redirection");
+            continue;
+          }
           redir = TRUE;
           if(strcmp(currentArgs[i], "<") == 0) {
-            //reset start and end,
-            //redirection is in or out?
+            strcpy(redirection, "in");
+          } else if(strcmp(currentArgs[i], ">") == 0) {
+            strcpy(redirection, "out");
+          } else {
+            //append to end of out file
+            strcpy(redirection, "end");
           }
+          fileRedirect = currentArgs[length - 1];
+
+          //free old args and make the new ones (excluding redirection info)
+          for(int i = 0; i < length; i++) {
+            free(currentArgs[i]);
+          }
+          free(currentArgs);
+          currentArgs = getArgs(start, end - 2);
+          length -= 2;
         }      
       }
         //If it doesn't, continue as normal
@@ -469,7 +488,7 @@ int main(int argc, char *argv[]){
         int skip = FALSE;
         
         //goes through each argument and classifies it as a filename or flag to feed to ls()
-        while(argPos < (end - start)) {
+        while(argPos < length) {
           char *arg = currentArgs[argPos];
           if(arg[0] == '-') {
             if((arg[1] != 'l' || arg[1] != 'F') && arg[2] != '\0') {
@@ -499,12 +518,12 @@ int main(int argc, char *argv[]){
         char *fileName = NULL;
         char *permissions = NULL;
 
-        if((end - start) < 3 || (end - start) > 4) {
+        if(length < 3 || length > 4) {
           printf("chmod: wrong number of arguments\n");
           skip = TRUE;
         } else {
           permissions = currentArgs[1];
-          if((end - start) == 3) {
+          if(length == 3) {
             fileName = currentArgs[2];
           } else {
             fileName = currentArgs[3];
@@ -522,34 +541,34 @@ int main(int argc, char *argv[]){
       } else if(0 == strcmp(currentArgs[0], "mkdir")) {
         int argPos = 1;
         //makes a directory for each given name
-        while(argPos < (end - start)) {
+        while(argPos < length) {
           char *arg = currentArgs[argPos];
           mkdir(arg);
           argPos++;
         }
         //checks if no directory name was given
-        if((end - start) == 1) {
+        if(length == 1) {
           printf("mkdir: please specify a directory name\n");
         }
       } else if(0 == strcmp(currentArgs[0], "rmdir")) {
         int argPos = 1;
         //removes the directory with each given name
-        while(argPos < (end - start)) {
+        while(argPos < length) {
           char *arg = currentArgs[argPos];
           rmdir_new(arg);
           argPos++;
         }
         //checks if no directory name was given
-        if((end - start) == 1) {
+        if(length == 1) {
           printf("rmdir: please specify a directory name\n");
         }
       } else if(0 == strcmp(currentArgs[0], "cd")) {
         char *filePath = NULL;
         int skip = FALSE;
         
-        if((end - start) == 2) {
+        if(length == 2) {
           filePath = currentArgs[1];
-        } else if((end - start) > 2) {
+        } else if(length > 2) {
           printf("cd: too many arguments\n");
           skip = TRUE;
         }
@@ -558,42 +577,42 @@ int main(int argc, char *argv[]){
           cd(filePath);
         }
       } else if(0 == strcmp(currentArgs[0], "pwd")) {        
-        if((end - start) > 1) {
+        if(length > 1) {
           printf("pwd: no arguments supported\n");
         }
         pwd();
       } else if(0 == strcmp(currentArgs[0], "cat")) {
-        if((end - start) == 1) {
+        if(length == 1) {
           printf("cat: please enter file(s) to see\n");
         } else {
-          cat(currentArgs+1, (end-start) - 1);
+          cat(currentArgs+1, length - 1);
         }
       } else if(0 == strcmp(currentArgs[0], "more")) {
-        if((end - start) == 1) {
+        if(length == 1) {
           printf("more: please enter file(s) to see\n");
         } else {
-          more(currentArgs+1, (end-start) - 1);
+          more(currentArgs+1, length - 1);
         }
       } else if(0 == strcmp(currentArgs[0], "rm")) {
         int argPos = 1;
         //removes each file given
-        while(argPos < (end - start)) {
+        while(argPos < length) {
           char *arg = currentArgs[argPos];
           rm(arg);
           argPos++;
         }
         //checks if no file name was given
-        if((end - start) == 1) {
+        if(length == 1) {
           printf("rm: please specify a file name\n");
         }
       } else if(0 == strcmp(currentArgs[0], "mount")) {
-        if((end - start) == 3) {
+        if(length == 3) {
           mount(currentArgs[1], currentArgs[2]);
         } else {
           printf("mount: incorrect number of arguments\n");
         }
       } else if(0 == strcmp(currentArgs[0], "unmount")) {
-        if((end - start) == 3) {
+        if(length == 3) {
           unmount(currentArgs[1], currentArgs[2]);
         } else {
           printf("mount: incorrect number of arguments\n");
@@ -617,6 +636,7 @@ int main(int argc, char *argv[]){
             }
             free(toks);
             free(redirection);
+            
             exit(0);
           }
         } else if (pid > 0) {
@@ -625,11 +645,12 @@ int main(int argc, char *argv[]){
 
       }
 
-      for(int i = 0; i < (end - start); i++) {
+      for(int i = 0; i < length; i++) {
         free(currentArgs[i]);
       }
       free(currentArgs);
       //free(redirection);
+      free(fileRedirect);
 
       commandsRun++;
       tokensExamined = end + 1;
