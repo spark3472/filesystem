@@ -27,6 +27,7 @@
 #include <termios.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include "vfs.h"
 
 #define TRUE  1
 #define FALSE 0
