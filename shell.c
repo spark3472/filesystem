@@ -44,9 +44,10 @@ int mounted;
 FILE *disk;
 
 //global array toks
-char** toks;
-//start of current command section (breaks up & and ; lines)
-char** traverser;
+char **toks;
+
+char *workingDirectory;
+char *parentDirectory;
 
 /******PARSER******/
 
@@ -100,13 +101,19 @@ char* get_next_token(TOKENIZER *v){
   }
   //add other parsing here
   if (isDelimiter(*(v->pos)) == TRUE){
+    if(*(v->pos) == '>') {
+      if(*(v->pos + 1) == '>') {
+        b++;
+        v->pos++;
+      }
+    }
     b++;
     v->pos++;
   }else {
     while(*(v->pos) != '\0'){
-      if (isDelimiter(*(v->pos)) == TRUE|| *(v->pos)== ' '){
+      if (isDelimiter(*(v->pos)) == TRUE || *(v->pos) == ' '){
         break;
-      } else{
+      } else {
         v->pos++;
         b++;
       }
@@ -217,10 +224,15 @@ void rmdir_new(char *fileName) {
 
 void cd(char *filePath) {
   printf("doing cd - filepath: %s\n", filePath);
+  //open new directory
+    //f_opendir?
+  //
+  
 }
 
 void pwd() {
-  printf("doing pwd\n");
+  //printf("doing pwd\n");
+  printf("%s\n", workingDirectory);
 }
 
 void cat(char **files, int num) {
@@ -298,6 +310,9 @@ void rm(char *fileName) {
 
 void mount(char *fileSys, char *location) {
   printf("doing mount - needs to be motified\n");
+  //grafting disk onto a point in existing file tree
+    // treat disk like located at particular folder
+    // if stuff already there, gets hidden until disk unmounted
 }
 
 void unmount(char *fileSys, char *location) {
@@ -312,12 +327,29 @@ int main(int argc, char *argv[]){
   if(access("./DISK", F_OK ) == 0) {
     // file exists
     // mount
-    disk = fopen("./DISK", "rwb");
+
+    // set up and get ready to read stuff 
+    // set up directory structure so root is root of disk
+    // do log in
+    //int outcome = f_mount("./DISK", "/");
+    /*if(outcome == -1) {
+      printf("Error mounting disk\n");
+    }
+    */
   } else {
     printf("No disk was found, please use \"format\" to create a disk.\n");
     printf("To format a disk, type \"format <name of file>\"\n");
     //look for user input
   }
+
+  int maxPathSize = 256;
+  workingDirectory = malloc(maxPathSize * sizeof(char));
+  parentDirectory = malloc(maxPathSize * sizeof(char));
+
+  strcpy(workingDirectory, "/");
+  strcpy(parentDirectory, "/");
+
+  //put at user directory later
 
   //log-on procedure outline
   /*
@@ -375,6 +407,7 @@ int main(int argc, char *argv[]){
 
     int tokensExamined = 0;
     int commandsRun = 0;
+    char *redirection = malloc(4 * sizeof(char));
     while(tokensExamined < number) {
       //start and end of the current command section
       int start = 0;
@@ -396,10 +429,25 @@ int main(int argc, char *argv[]){
 
 
       /* DO REDIRECTION HERE */
-      char redirection = malloc(4 * sizeof(char));
-      redirection = "no";
+      //char *redirection = malloc(4 * sizeof(char));
+      strcpy(redirection, "no\0");
 
       //Check if the subsection contains <, >, or >> :
+      int redir = FALSE;
+      for (int i = 0; i < (end - start); i++){
+        if ((strcmp(currentArgs[i], ">") == 0) || (strcmp(currentArgs[i], "<") == 0) || (strcmp(currentArgs[i], ">>") == 0)){
+          if(redir == TRUE) {
+            //MODIFY m_error = ....
+            printf("Multiple redirection not supported.\n");
+            continue;
+          }
+          redir = TRUE;
+          if(strcmp(currentArgs[i], "<") == 0) {
+            //reset start and end,
+            //redirection is in or out?
+          }
+        }      
+      }
         //If it doesn't, continue as normal
         //If it does:
           //Seperate out the real command (based on if redirecting input or output)
@@ -407,7 +455,7 @@ int main(int argc, char *argv[]){
           //Set redirection to "in" or "out"
           //Identify the file to get input to/from
             //char *fileRedirect = currentArgs[...];
-
+        //can create temporary unix files
 
         //https://stackoverflow.com/questions/29154056/redirect-stdout-to-a-file ???
         //https://www.unix.com/programming/268879-c-unix-how-redirect-stdout-file-c-code.html 
@@ -568,6 +616,7 @@ int main(int argc, char *argv[]){
               free(toks[i]);
             }
             free(toks);
+            free(redirection);
             exit(0);
           }
         } else if (pid > 0) {
@@ -580,7 +629,7 @@ int main(int argc, char *argv[]){
         free(currentArgs[i]);
       }
       free(currentArgs);
-      free(redirection);
+      //free(redirection);
 
       commandsRun++;
       tokensExamined = end + 1;
@@ -589,6 +638,7 @@ int main(int argc, char *argv[]){
       free(toks[i]);
     }
     free(toks);
+    free(redirection);
   }
 
   for(int i = 0; i < number; i++){
@@ -596,6 +646,9 @@ int main(int argc, char *argv[]){
   }
   free(toks);
   free(line);
+
+  free(workingDirectory);
+  free(parentDirectory);
 
 }
 
