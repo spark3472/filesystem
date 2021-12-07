@@ -56,7 +56,7 @@ typedef struct fs_driver{
     int					(*f_closedir)(vnode_t *vn, int* directory);
     int					(*f_mkdir)(vnode_t *vn, const char *filename, int mode);
     int					(*f_rmdir)(vnode_t *vn, const char *filename);
-    int					(*f_mount)(const char* src, const char* target);
+    int					(*f_mount)(const char* src, const char* tsarget);
     int					(*f_umount)(vnode_t *vn, const char *dir, int flags);
 }fs_driver_t;
 

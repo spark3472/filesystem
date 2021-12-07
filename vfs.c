@@ -5,12 +5,17 @@
 #include <signal.h>
 #include "format.h"
 #include <string.h>
+#include <signal.h>
 //make tree root global in shell
 vnode_t *root;
 int num_open_files = 0;
 FILE* fp;
 void* disk;
 //create signal handle/register to clean up fp and buffer upon user ending program?
+void sighandler(int signo)
+{
+    free(disk);
+}
 vnode_t* find(char* path)
 {
     //theoretical example of root directory 
@@ -197,6 +202,7 @@ int f_mount(char* filename)
     
     while(node->next_inode != -1)
     {
+        signal(SIGTERM, sighandler);
         vnode_t* vn = malloc(sizeof(vnode_t));
         //how to differentiate between child and sibling?
         vnode_t* temp = malloc(sizeof(vnode_t));
@@ -207,14 +213,19 @@ int f_mount(char* filename)
         vn->permissions;
         vn->type;
         vn->vnode_number;
-        
+
         while(1)//while the next inode is a sibling and not a child
         {
-            vn->next;//to fill
+            vn->next = malloc(sizeof(vnode_t));//to fill
+            vn->inode;
+            vn->name;
+            vn->permissions;
+            vn->type;
+            vn->vnode_number;
             vn = vn->next;
         }
         vn = temp;
-        vn->child;//to fill
+        vn->child = malloc(sizeof(vnode_t));//to fill
         vn = vn->child;
         
 
