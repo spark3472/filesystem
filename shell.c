@@ -23,7 +23,7 @@ https://askubuntu.com/questions/1022923/cannot-open-visual-studio-code
     - am I allowed to use fopen to mount??
 
     redirection
-    - how do I identify '>>'.....
+    - how to do < redirection???? when used???
 */
 
 #include <unistd.h>
@@ -401,11 +401,11 @@ int main(int argc, char *argv[]){
       }      
     }
 
-    printf("====\n");
+    /*printf("====\n");
     for(int i = 0; i < number; i++) {
       printf("%s\n", toks[i]);
     } 
-    printf("====\n");
+    printf("====\n");*/
 
     int tokensExamined = 0;
     int commandsRun = 0;
@@ -454,9 +454,9 @@ int main(int argc, char *argv[]){
             strcpy(redirection, "out");
           } else {
             //append to end of out file
-            strcpy(redirection, "end");
+            strcpy(redirection, "app");
           }
-          fileRedirect = currentArgs[length - 1];
+          strcpy(fileRedirect, currentArgs[length - 1]);
 
           //free old args and make the new ones (excluding redirection info)
           for(int i = 0; i < length; i++) {
@@ -467,18 +467,9 @@ int main(int argc, char *argv[]){
           length -= 2;
         }      
       }
-        //If it doesn't, continue as normal
-        //If it does:
-          //Seperate out the real command (based on if redirecting input or output)
-            //So update start/end and currentArgs
-          //Set redirection to "in" or "out"
-          //Identify the file to get input to/from
-            //char *fileRedirect = currentArgs[...];
-        //can create temporary unix files
+      //printf("File out is %s\n", fileRedirect);
 
-        //https://stackoverflow.com/questions/29154056/redirect-stdout-to-a-file ???
-        //https://www.unix.com/programming/268879-c-unix-how-redirect-stdout-file-c-code.html 
-
+      //redirection within here?? how??
 
       if(0 == strcmp(currentArgs[0], "ls")) {
         char flags[2] = "\0";
@@ -623,6 +614,20 @@ int main(int argc, char *argv[]){
         if((pid = fork()) == 0) {
           //puts the child process in its own process group
           setpgid(getpid(),0);
+
+          if(redir == TRUE && strcmp(redirection, "in") != 0) {
+            int outTemp = open("temp.txt", O_RDWR|O_CREAT, 0600);
+            if (-1 == dup2(outTemp, fileno(stdout))) {
+              perror("Can't redirect stdout\n");
+              continue;
+            }
+          } else if(redir == TRUE && strcmp(redirection, "in") == 0) {
+            int inTemp = open("temp.txt", O_RDWR|O_CREAT, 0600);
+            if (-1 == dup2(inTemp, fileno(stdin))) {
+              perror("Can't redirect stdin\n");
+              continue;
+            }
+          }
           
           if( -1 == execvp(currentArgs[0], currentArgs) ){
             //error message for our use
@@ -642,6 +647,53 @@ int main(int argc, char *argv[]){
         } else if (pid > 0) {
           waitpid(pid, NULL, 0);
         }
+        if(redir == TRUE && strcmp(redirection, "in") != 0) {
+          if(access("./temp.txt", F_OK ) == 0) {
+            printf("Can do file things in parent\n");
+
+            //read in UNIX file
+            FILE *inputfile = fopen("./temp.txt", "rwb");
+            if(!inputfile) {
+              printf("Error redirecting input/output\n");
+              continue;
+            }
+
+            fseek(inputfile, 0L, SEEK_END);
+            int size = ftell(inputfile);
+            rewind(inputfile);
+            //reading file into memory to copy to our file system
+            void *file = malloc(size);
+            
+            size_t bytes = fread(file, 1, size, inputfile);
+            if (bytes != size) {
+              printf("Error redirecting input/output\n");
+              continue;
+            }
+            fclose(inputfile);
+            remove("./temp.txt");
+
+            //copy to our file system
+            //MODIFY change to our library system calls
+
+            //set to create if doesn't exist; for >>, just set to append
+            FILE *outfile;
+            if (strcmp(redirection, "out") == 0) {
+              outfile = fopen(fileRedirect, "w");
+            } else if (strcmp(redirection, "app") == 0) {
+              outfile = fopen(fileRedirect, "a");
+            }
+            
+            if(!outfile) {
+              printf("Error redirecting input/output\n");
+              continue;
+            }
+            fwrite(file, size, 1, outfile);
+            fclose(outfile);
+            free(file);
+          } else {
+            printf("no file :( \n");
+          }
+        }
 
       }
 
@@ -649,7 +701,6 @@ int main(int argc, char *argv[]){
         free(currentArgs[i]);
       }
       free(currentArgs);
-      //free(redirection);
       free(fileRedirect);
 
       commandsRun++;
