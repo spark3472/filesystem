@@ -2,13 +2,15 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <signal.h>
 #include "format.h"
 #include <string.h>
 //make tree root global in shell
 vnode_t *root;
 int num_open_files = 0;
 FILE* fp;
-
+void* disk;
+//create signal handle/register to clean up fp and buffer upon user ending program?
 vnode_t* find(char* path)
 {
     //theoretical example of root directory 
@@ -77,19 +79,8 @@ int f_open( char* path, int flags)
         //file does not exist (flag based)
     vnode_t* vn = find(path);
     printf("%s\n", vn->name);
-    /*int inode_num = vn->inode;
+
     
-
-    //get size of disk
-    FILE* fp = fopen("DISK", "r");
-    fseek(fp, 0L, SEEK_END);
-    long size = ftell(fp);
-    rewind(fp);
-
-    //read into buffer
-    void* disk = malloc(size);
-    fread(disk, 1, size, fp);
-
     //find first inode
     void* ptr = disk;
     ptr += 1024 + 1 * 512;
@@ -113,7 +104,7 @@ int f_open( char* path, int flags)
     
     //return handle of file/directory
     int handle; 
-    return handle;*/
+    return handle;
 }
 
 
@@ -187,6 +178,49 @@ int f_mount(char* filename)
     {
         return -1;
     }
+    //get size of disk
+    fseek(fp, 0L, SEEK_END);
+    long size = ftell(fp);
+    rewind(fp);
+
+    //read into buffer
+    void* disk = malloc(size);
+    fread(disk, 1, size, fp);
+    rewind(fp);
+    fclose(fp);
+
+    //find first inode
+    void* ptr = disk;
+    ptr += 1024 + 1 * 512;
+    inode* node = (inode*)ptr;
+
+    
+    while(node->next_inode != -1)
+    {
+        vnode_t* vn = malloc(sizeof(vnode_t));
+        //how to differentiate between child and sibling?
+        vnode_t* temp = malloc(sizeof(vnode_t));
+        temp = vn;
+
+        vn->inode;
+        vn->name;
+        vn->permissions;
+        vn->type;
+        vn->vnode_number;
+        
+        while(1)//while the next inode is a sibling and not a child
+        {
+            vn->next;//to fill
+            vn = vn->next;
+        }
+        vn = temp;
+        vn->child;//to fill
+        vn = vn->child;
+        
+
+    }
+
+    
 
 }
 int f_umount(vnode_t *vn, const char *dir, int flags)
