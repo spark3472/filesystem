@@ -1,19 +1,48 @@
 #include "directory.h"
-#include "format.h"
 #include <stdio.h>
 #include <stddef.h>
 
 #define MAX_FT_SIZE 10000
 
-enum {OREAD, OWRITE, RDWR, APPEND};
+//OREAD: open file for reading
+//ORDWR: open file for reading and writing
+//OWRITE: truncate file to zero or create file for writing
+//OCREAT: open for for reading and writing. file is created if it does not exist
+//OAPPEND: open for writing at end of file (stream is positioned at end). file is created if it does not exist
+//ORDAD: open for reading or appending (end of file). file is created if it does not exist
 
-
-fileEntry fileTable[MAX_FT_SIZE];
+enum {OREAD, ORDWR, OWRITE, OCREAT, OAPPEND, ORDAD};
 
 //f_open returns file handle
 //f_opendir returns directory handle
 
-typedef struct {
+
+//stat struct taken from man fstat()
+struct stat_t {
+    int inode;
+    int n_links;
+    int uid;
+    int gid;
+    int size;
+    int blocksize;
+    int num_blocks;
+    int atime;
+    int mtime;
+    int ctime;
+};
+
+typedef struct vnode {
+    int vnode_number;
+    char name[255];
+    struct vnode* child;
+    struct vnode* next;
+    int permissions;
+    int type;
+    //fs_driver_t* driver;  
+    int inode;			/* hard coding for unix */
+} vnode_t;
+
+typedef struct fs_driver{
     int				    (*f_open)(vnode_t *vn, const char *filename, int flags);
     size_t 				(*f_read)(vnode_t *vn, void *data, size_t size, int num, int fd);
     size_t 				(*f_write)(vnode_t *vn, void *data, size_t size, int num, int fd);
@@ -27,28 +56,20 @@ typedef struct {
     int					(*f_closedir)(vnode_t *vn, int* directory);
     int					(*f_mkdir)(vnode_t *vn, const char *filename, int mode);
     int					(*f_rmdir)(vnode_t *vn, const char *filename);
-    int					(*f_mount)(vnode_t *vn, const char *type, const char *dir, int flags, void *data);
+    int					(*f_mount)(const char* src, const char* target);
     int					(*f_umount)(vnode_t *vn, const char *dir, int flags);
-} fs_driver_t;
+}fs_driver_t;
 
-typedef struct vnode {
-    int vnode_number;
-    char name[255];
-    struct vnode* parent;
-    int permissions;
-    int type;
-    fs_driver_t* driver;  
-    int inode;			/* hard coding for unix */
-} vnode_t;
+
 
 // to track opened files
 typedef struct fileEntry{
-    int entry;
     vnode_t* vn;
     int offset;
     int flag;
 }fileEntry;
 
+fileEntry fileTable[MAX_FT_SIZE];
 
 
 

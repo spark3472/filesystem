@@ -5,5 +5,3 @@ typedef struct _DirEntry {
     int inodeNum;		        //the inode number of the file
     struct _DirEntry *nextFile;	//the next file in the directory
 } DirEntry;
-
-DirEntry dirTree[MAX_DT_SIZE];

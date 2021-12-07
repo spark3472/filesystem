@@ -36,6 +36,7 @@ https://askubuntu.com/questions/1022923/cannot-open-visual-studio-code
 #include <termios.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include "vfs.h"
 
 #define TRUE  1
 #define FALSE 0
