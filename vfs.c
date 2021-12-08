@@ -108,7 +108,7 @@ size_t f_read(void *ptr, size_t size, int num, int fd)
     printf("INODE NUMBER: %d\n", fileTable[fd].vn->inode);
     
     void* node = disk;
-    node += inode_start + fileTable[fd].vn->inode * blockSize;
+    node += inode_start + fileTable[fd].vn->inode * sizeof(inode);
     inode* get_offset = (inode*)node;
     
     node = disk + data_start + get_offset->dblocks[0] * blockSize;
@@ -195,7 +195,7 @@ int f_mount(char* filename, char* path_to_put)
     //read into buffer
     disk = malloc(size);
     fread(disk, 1, size, fp);
-    rewind(fp);
+    //rewind(fp);
     //fclose(fp);
 
     //info from superblock
