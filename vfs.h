@@ -43,10 +43,10 @@ typedef struct vnode {
 } vnode_t;
 
 typedef struct fs_driver{
-    int				    (*f_open)(vnode_t *vn, const char *filename, int flags);
+    int				    (*f_open)(char *path, int flags);
     size_t 				(*f_read)(vnode_t *vn, void *data, size_t size, int num, int fd);
     size_t 				(*f_write)(vnode_t *vn, void *data, size_t size, int num, int fd);
-    int 				(*f_close)(vnode_t *vn, int fd);
+    int 				(*f_close)(int fd);
     int 				(*f_seek)(vnode_t *vn, int offset, int whence, int fd);
     int 				(*f_rewind)(vnode_t *vn, int fd);
     int					(*f_stat)(vnode_t *vn, struct stat_t *buf, int fd);
@@ -56,7 +56,7 @@ typedef struct fs_driver{
     int					(*f_closedir)(vnode_t *vn, int* directory);
     int					(*f_mkdir)(vnode_t *vn, const char *filename, int mode);
     int					(*f_rmdir)(vnode_t *vn, const char *filename);
-    int					(*f_mount)(const char* src, const char* tsarget);
+    int					(*f_mount)(char* src, char* target);
     int					(*f_umount)(vnode_t *vn, const char *dir, int flags);
 }fs_driver_t;
 

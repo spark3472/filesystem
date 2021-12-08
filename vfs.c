@@ -9,7 +9,7 @@
 //make tree root global in shell
 vnode_t *root;
 int num_open_files = 0;
-FILE* fp;
+FILE* firstDisk;
 void* disk;
 //create signal handle/register to clean up fp and buffer upon user ending program?
 void sighandler(int signo)
@@ -18,21 +18,6 @@ void sighandler(int signo)
 }
 vnode_t* find(char* path)
 {
-    //theoretical example of root directory 
-    root = malloc(sizeof(vnode_t));
-    vnode_t* child = malloc(sizeof(vnode_t));
-    strcpy(child->name, "user0");
-    strcpy(root->name, "/");
-    root->child = child;
-    vnode_t* correct_child = malloc(sizeof(vnode_t));
-    strcpy(correct_child->name, "user1");
-    child->next = correct_child;
-    vnode_t* answer = malloc(sizeof(vnode_t));
-    strcpy(answer->name, "a");
-    correct_child->child = answer;
-
-
-    
     vnode_t* traverse = root;
     if (strcmp(root->name, path) == 0)
     {
@@ -83,7 +68,6 @@ int f_open( char* path, int flags)
         //wrong flag
         //file does not exist (flag based)
     vnode_t* vn = find(path);
-    printf("%s\n", vn->name);
 
     
     //find first inode
@@ -92,23 +76,16 @@ int f_open( char* path, int flags)
     inode* node = (inode*)ptr;
 
 
-    //print 
-    if (node->file_type == FILE_TYPE)
-    {
-        fileEntry entry;
-        entry.flag = flags;//permissions
-        entry.offset = 0; //position in stream
-        entry.vn = vn;
-        fileTable[num_open_files] = entry;
-        num_open_files++;
-
-    }else if (node->file_type == DIRECTORY_TYPE)
-    {
-        //make a directory entry
-    }
+   
+    fileEntry entry;
+    entry.flag = flags;//permissions
+    entry.offset = 0; //position in stream
+    entry.vn = vn;
+    fileTable[num_open_files] = entry;
     
     //return handle of file/directory
-    int handle; 
+    int handle = num_open_files;
+    num_open_files++;
     return handle;
 }
 
@@ -155,8 +132,13 @@ int f_remove(vnode_t *vn, const char *filename)
 
 
 
-int f_opendir(vnode_t *vn, const char *filename){
-  
+int f_opendir(char *path)
+{
+    
+    vnode_t* node = malloc(sizeof(vnode_t));
+    node = find(path);
+
+
 }
 
 
@@ -176,9 +158,9 @@ int f_rmdir(vnode_t *vn, const char *filename)
 {
 
 }
-int f_mount(char* filename)
+int f_mount(char* filename, char* path_to_put)
 {
-    fp = fopen("DISK", "r+");
+    FILE *fp = fopen(filename, "r+");
     if (fp == NULL)
     {
         return -1;
@@ -194,44 +176,46 @@ int f_mount(char* filename)
     rewind(fp);
     fclose(fp);
 
+    //info from superblock
+    superblock *super = (superblock*)(disk + 512);
+    int blockSize = super->block_size;
+    int inode_offset = super->inode_offset;
+    int data_offset = super->data_offset;
+    int inode_start = 1024 + inode_offset*blockSize;
+    int data_start = 1024 + data_offset*blockSize;
+
     //find first inode
     void* ptr = disk;
-    ptr += 1024 + 1 * 512;
+    ptr += 1024 + inode_offset * blockSize;
     inode* node = (inode*)ptr;
 
-    
-    while(node->next_inode != -1)
-    {
-        signal(SIGTERM, sighandler);
-        vnode_t* vn = malloc(sizeof(vnode_t));
-        //how to differentiate between child and sibling?
-        vnode_t* temp = malloc(sizeof(vnode_t));
-        temp = vn;
+    void *rootData = disk + data_start + (node->dblocks[0] * blockSize);
+    if(strcmp(path_to_put, "/") == 0) {
+        //make vnode for root
+        firstDisk = fp;
+        root = malloc(sizeof(vnode_t));
+        strcpy(root->name, "/"); 
+        DirEntry* dir = (DirEntry*)rootData;
+        root->inode = 0;
+        root->child = malloc(sizeof(vnode_t));
+        strcpy(root->child->name, dir->fileName);
+        root->child->inode = dir->inodeNum;
 
-        vn->inode;
-        vn->name;
-        vn->permissions;
-        vn->type;
-        vn->vnode_number;
-
-        while(1)//while the next inode is a sibling and not a child
+        vnode_t* temp = root->child;
+        for (dir = dir->nextFile; dir != NULL; dir = dir->nextFile)
         {
-            vn->next = malloc(sizeof(vnode_t));//to fill
-            vn->inode;
-            vn->name;
-            vn->permissions;
-            vn->type;
-            vn->vnode_number;
-            vn = vn->next;
+            temp->next = malloc(sizeof(vnode_t));
+            temp = temp->next;
+            strcpy(temp->name, dir->fileName);
+            temp->inode = dir->inodeNum;
         }
-        vn = temp;
-        vn->child = malloc(sizeof(vnode_t));//to fill
-        vn = vn->child;
-        
-
+    }else{
+        vnode_t* to_put = find(path_to_put);
+        //mount at path_to_put
     }
 
-    
+    return 0;
+
 
 }
 int f_umount(vnode_t *vn, const char *dir, int flags)
@@ -241,7 +225,7 @@ int f_umount(vnode_t *vn, const char *dir, int flags)
 
 int main(){
 
-
-    f_open("/user1/a", ORDWR);
+    printf("Mount %d\n",f_mount("DISK", "/"));
+    printf("Open %d\n", f_open("/letters.txt", ORDWR));
 
 }
