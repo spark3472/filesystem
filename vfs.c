@@ -253,20 +253,17 @@ int f_unmount(const char *dir, int flags)
 
 int main(){
 
-<<<<<<< HEAD
     printf("Mount %d\n",f_mount("DISK", "/"));
+    //printf("Mount %d\n",f_mount("./DISK", "/"));
+
     int fd = f_open("/letters.txt", ORDWR);
 
     void* ptr = malloc(sizeof(char)*4);
     f_read(ptr, 1, 3, fd);
-=======
-    printf("Mount %d\n",f_mount("./DISK", "/"));
-    printf("Open %d\n", f_open("/letters.txt", ORDWR));
 
     f_unmount("/", 0);
 
     /*
->>>>>>> bf2b6c0dc882baf5470e648162450fc4ab16ad0a
     free(disk);
     free(root->child->next);
     free(root->child);
