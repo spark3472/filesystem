@@ -326,6 +326,17 @@ void unmount(char *fileSys, char *location) {
 
 int main(int argc, char *argv[]){
 
+  //blocking listed signals in the shell so you can't quit it
+  setpgid(0,0);
+  sigset_t sigset;
+  sigemptyset(&sigset);
+  sigaddset(&sigset, SIGQUIT);
+  sigaddset(&sigset, SIGTTIN);
+  sigaddset(&sigset, SIGTTOU);
+  sigaddset(&sigset, SIGINT);
+  sigaddset(&sigset, SIGTSTP);
+  sigprocmask(SIG_BLOCK, &sigset, NULL);
+
   //is this how you mount a disk???
   if(access("./DISK", F_OK ) == 0) {
     // file exists
@@ -334,10 +345,10 @@ int main(int argc, char *argv[]){
     // set up and get ready to read stuff 
     // set up directory structure so root is root of disk
     // do log in
-    int outcome = f_mount("./DISK", "/");
+    /*int outcome = f_mount("./DISK", "/");
     if(outcome == -1) {
       printf("Error mounting disk\n");
-    }
+    }*/
     
   } else {
     printf("No disk was found, please use \"format\" to create a disk.\n");
