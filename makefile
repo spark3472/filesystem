@@ -1,4 +1,4 @@
-all: library shell format sampleDisk setup
+all: library shell format sampleDisk
 
 setup:
 	./format DISK 

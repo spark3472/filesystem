@@ -627,14 +627,15 @@ int main(int argc, char *argv[]){
           //puts the child process in its own process group
           setpgid(getpid(),0);
 
+          int outTemp, inTemp;
           if(redir == TRUE && strcmp(redirection, "in") != 0) {
-            int outTemp = open("temp.txt", O_RDWR|O_CREAT, 0600);
+            outTemp = open("temp.txt", O_RDWR|O_CREAT, 0600);
             if (-1 == dup2(outTemp, fileno(stdout))) {
               perror("Can't redirect stdout\n");
               continue;
             }
           } else if(redir == TRUE && strcmp(redirection, "in") == 0) {
-            int inTemp = open("temp.txt", O_RDWR|O_CREAT, 0600);
+            inTemp = open("temp.txt", O_RDWR|O_CREAT, 0600);
             if (-1 == dup2(inTemp, fileno(stdin))) {
               perror("Can't redirect stdin\n");
               continue;
@@ -647,7 +648,7 @@ int main(int argc, char *argv[]){
             snprintf( errmsg, sizeof(errmsg), "exec '%s' failed", currentArgs[0] );
             perror( errmsg );*/
             //error message for user use
-            printf("%s: command not found\n", currentArgs[0]);
+            fprintf(stderr, "%s: command not found\n", currentArgs[0]);
             for(int i = 0; i < number; i++){
               free(toks[i]);
             }
@@ -661,12 +662,12 @@ int main(int argc, char *argv[]){
         }
         if(redir == TRUE && strcmp(redirection, "in") != 0) {
           if(access("./temp.txt", F_OK ) == 0) {
-            printf("Can do file things in parent\n");
+            fprintf(stderr, "Redirecting file things\n");
 
             //read in UNIX file
             FILE *inputfile = fopen("./temp.txt", "rwb");
             if(!inputfile) {
-              printf("Error redirecting input/output\n");
+              fprintf(stderr, "Error redirecting input/output\n");
               continue;
             }
 
@@ -678,7 +679,7 @@ int main(int argc, char *argv[]){
             
             size_t bytes = fread(file, 1, size, inputfile);
             if (bytes != size) {
-              printf("Error redirecting input/output\n");
+              fprintf(stderr, "Error redirecting input/output\n");
               continue;
             }
             fclose(inputfile);
@@ -696,14 +697,14 @@ int main(int argc, char *argv[]){
             }
             
             if(!outfile) {
-              printf("Error redirecting input/output\n");
+              fprintf(stderr, "Error redirecting input/output\n");
               continue;
             }
             fwrite(file, size, 1, outfile);
             fclose(outfile);
             free(file);
           } else {
-            printf("no file :( \n");
+            fprintf(stderr, "no file :( \n");
           }
         }
 
