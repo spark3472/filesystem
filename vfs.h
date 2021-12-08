@@ -44,7 +44,7 @@ typedef struct vnode {
 
 typedef struct fs_driver{
     int				    (*f_open)(char *path, int flags);
-    size_t 				(*f_read)(vnode_t *vn, void *data, size_t size, int num, int fd);
+    size_t 				(*f_read)(void *ptr, size_t size, int num, int fd);
     size_t 				(*f_write)(vnode_t *vn, void *data, size_t size, int num, int fd);
     int 				(*f_close)(int fd);
     int 				(*f_seek)(vnode_t *vn, int offset, int whence, int fd);

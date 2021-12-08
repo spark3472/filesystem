@@ -9,6 +9,9 @@
 //make tree root global in shell
 vnode_t *root;
 int num_open_files = 0;
+int blockSize;
+int data_start;
+int inode_start;
 FILE* firstDisk;
 void* disk;
 //create signal handle/register to clean up fp and buffer upon user ending program?
@@ -69,14 +72,7 @@ int f_open( char* path, int flags)
         //wrong flag
         //file does not exist (flag based)
     vnode_t* vn = find(path);
-
-    
-    //find first inode
-    void* ptr = disk;
-    ptr += 1024 + 1 * 512;
-    inode* node = (inode*)ptr;
-
-
+    printf("%d\n", vn->inode);
    
     fileEntry entry;
     entry.flag = flags;//permissions
@@ -91,12 +87,21 @@ int f_open( char* path, int flags)
 }
 
 
-size_t f_read(vnode_t *vn, void *data, size_t size, int num, int fd)
+size_t f_read(void *ptr, size_t size, int num, int fd)
 {
-    size_t to_read = size * num;
+    size_t data_to_read = size * num;
+    fileEntry to_read = fileTable[fd];
+    printf("INODE NUMBER: %d\n", fileTable[fd].vn->inode);
+    
+    void* node = disk;
+    node += inode_start + fileTable[fd].vn->inode * blockSize;
+    inode* get_offset = (inode*)node;
+    
+    node = disk + data_start + get_offset->dblocks[0] * blockSize;
 
-
-
+    ptr = malloc(data_to_read);
+    memccpy(ptr, node, num, size);
+    return data_to_read;
 }
 
 size_t f_write(vnode_t *vn, void *data, size_t size, int num, int fd)
@@ -138,6 +143,7 @@ int f_opendir(char *path)
     
     vnode_t* node = malloc(sizeof(vnode_t));
     node = find(path);
+    
 
 
 }
@@ -179,11 +185,11 @@ int f_mount(char* filename, char* path_to_put)
 
     //info from superblock
     superblock *super = (superblock*)(disk + 512);
-    int blockSize = super->block_size;
+    blockSize = super->block_size;
     int inode_offset = super->inode_offset;
     int data_offset = super->data_offset;
-    int inode_start = 1024 + inode_offset*blockSize;
-    int data_start = 1024 + data_offset*blockSize;
+    inode_start = 1024 + inode_offset*blockSize;
+    data_start = 1024 + data_offset*blockSize;
 
     //find first inode
     void* ptr = disk;
@@ -227,11 +233,15 @@ int f_umount(vnode_t *vn, const char *dir, int flags)
 int main(){
 
     printf("Mount %d\n",f_mount("DISK", "/"));
-    printf("Open %d\n", f_open("/letters.txt", ORDWR));
+    int fd = f_open("/letters.txt", ORDWR);
 
+    void* ptr = malloc(sizeof(char)*4);
+    f_read(ptr, 1, 3, fd);
     free(disk);
     free(root->child->next);
     free(root->child);
     free(root);
+
+
 
 }
