@@ -14,6 +14,7 @@ void* disk;
 //create signal handle/register to clean up fp and buffer upon user ending program?
 void sighandler(int signo)
 {
+
     free(disk);
 }
 vnode_t* find(char* path)
@@ -227,5 +228,10 @@ int main(){
 
     printf("Mount %d\n",f_mount("DISK", "/"));
     printf("Open %d\n", f_open("/letters.txt", ORDWR));
+
+    free(disk);
+    free(root->child->next);
+    free(root->child);
+    free(root);
 
 }
