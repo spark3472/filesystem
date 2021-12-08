@@ -20,3 +20,5 @@ clean:
 	rm shell
 	rm format
 	rm sampleDisk
+	rm vfs.o
+	rm libvfs.so
