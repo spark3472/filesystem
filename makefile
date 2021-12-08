@@ -20,6 +20,9 @@ format: format.c
 sampleDisk: sampleDisk.c 
 	gcc -g -o sampleDisk sampleDisk.c
 	
+vfs: vfs.c vfs.h
+	gcc -g -o vfs vfs.c
+
 clean:
 	rm shell
 	rm format

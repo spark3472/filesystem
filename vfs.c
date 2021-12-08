@@ -6,6 +6,10 @@
 #include "format.h"
 #include <string.h>
 #include <signal.h>
+
+#define FAILURE -1
+#define SUCCESS 0
+
 //make tree root global in shell
 vnode_t *root;
 int num_open_files = 0;
@@ -23,6 +27,12 @@ void sighandler(int signo)
 vnode_t* find(char* path)
 {
     vnode_t* traverse = root;
+
+    if(root == NULL) {
+        printf("No root directory\n");
+        return NULL;
+    }
+
     if (strcmp(root->name, path) == 0)
     {
         printf("is root directory\n");
@@ -72,6 +82,10 @@ int f_open( char* path, int flags)
         //wrong flag
         //file does not exist (flag based)
     vnode_t* vn = find(path);
+    if(vn == NULL) {
+        fprintf(stderr, "f_open: Error finding file\n");
+        return FAILURE;
+    }
     printf("%d\n", vn->inode);
    
     fileEntry entry;
@@ -98,6 +112,7 @@ size_t f_read(void *ptr, size_t size, int num, int fd)
     inode* get_offset = (inode*)node;
     
     node = disk + data_start + get_offset->dblocks[0] * blockSize;
+    printf("Contents: %s\n", (char*)node);
 
     ptr = malloc(data_to_read);
     memccpy(ptr, node, num, size);
@@ -178,10 +193,10 @@ int f_mount(char* filename, char* path_to_put)
     rewind(fp);
 
     //read into buffer
-    void* disk = malloc(size);
+    disk = malloc(size);
     fread(disk, 1, size, fp);
     rewind(fp);
-    fclose(fp);
+    //fclose(fp);
 
     //info from superblock
     superblock *super = (superblock*)(disk + 512);
@@ -225,9 +240,22 @@ int f_mount(char* filename, char* path_to_put)
 
 
 }
-int f_umount(vnode_t *vn, const char *dir, int flags)
+int f_unmount(const char *dir, int flags)
 {
-
+    //unmounting whole file system
+    //corner case where other disk is mounted at root after the initial one - could maybe ignore
+    if(strcmp(dir, "/") == 0) {
+        printf("unmounting root\n");
+        free(disk);
+        free(root->child);
+        free(root);
+        int outcome = fclose(firstDisk);
+        if(outcome != 0) {
+            printf("Error unmounting disk\n");
+            return FAILURE;
+        }
+    }
+    return SUCCESS;
 }
 
 int main(){
@@ -236,6 +264,10 @@ int main(){
     //printf("Mount %d\n",f_mount("./DISK", "/"));
 
     int fd = f_open("/letters.txt", ORDWR);
+    if(fd == -1) {
+        fprintf(stderr, "f_open error\n");
+        exit(0);
+    }
 
     void* ptr = malloc(sizeof(char)*4);
     f_read(ptr, 1, 3, fd);

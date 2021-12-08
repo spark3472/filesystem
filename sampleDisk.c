@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
 
     //creating a file and updating the free info
     inode *firstFree = (inode*)(disk + inode_start + super->free_inode*sizeof(inode));
-    super->free_inode = firstFree->next_inode;
+    super->free_inode++;
 
     char *contents = "abc";
 
@@ -55,9 +55,14 @@ int main(int argc, char *argv[]) {
     firstFree->next_inode = -1;
     firstFree->size = sizeof(contents) / 8;
     firstFree->ctime = time(NULL);
-    firstFree->dblocks[0] = *((int*)(disk + data_start + super->free_block * blockSize));
+
+    //firstFree->dblocks[0] = *((int*)(disk + data_start + super->free_block * blockSize));
+    firstFree->dblocks[0] = super->free_block;
+
     //setting the first free block to the next one (which was stored as a pointer)
-    super->free_block = *((int*)(disk + data_start + super->free_block * blockSize));
+    //MODIFY maybe??
+    super->free_block++;
+    //super->free_block = *((int*)(disk + data_start + super->free_block * blockSize));
     //made "file"
     memcpy((disk + data_start + firstFree->dblocks[0]), contents, sizeof(contents));
 
