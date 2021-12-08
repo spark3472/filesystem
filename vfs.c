@@ -6,10 +6,6 @@
 #include "format.h"
 #include <string.h>
 #include <signal.h>
-
-#define FAILURE -1
-#define SUCCESS 0
-
 //make tree root global in shell
 vnode_t *root;
 int num_open_files = 0;
@@ -27,11 +23,6 @@ void sighandler(int signo)
 vnode_t* find(char* path)
 {
     vnode_t* traverse = root;
-    if(root == NULL) {
-        printf("No root directory\n");
-        return NULL;
-    }
-
     if (strcmp(root->name, path) == 0)
     {
         printf("is root directory\n");
@@ -179,8 +170,7 @@ int f_mount(char* filename, char* path_to_put)
     FILE *fp = fopen(filename, "r+");
     if (fp == NULL)
     {
-        printf("Can't open disk to mount\n");
-        return FAILURE;
+        return -1;
     }
     //get size of disk
     fseek(fp, 0L, SEEK_END);
@@ -188,10 +178,10 @@ int f_mount(char* filename, char* path_to_put)
     rewind(fp);
 
     //read into buffer
-    disk = malloc(size);
+    void* disk = malloc(size);
     fread(disk, 1, size, fp);
     rewind(fp);
-    //fclose(fp);
+    fclose(fp);
 
     //info from superblock
     superblock *super = (superblock*)(disk + 512);
@@ -230,25 +220,14 @@ int f_mount(char* filename, char* path_to_put)
         vnode_t* to_put = find(path_to_put);
         //mount at path_to_put
     }
-    return SUCCESS;
-}
 
-int f_unmount(const char *dir, int flags)
+    return 0;
+
+
+}
+int f_umount(vnode_t *vn, const char *dir, int flags)
 {
-    //unmounting whole file system
-    //corner case where other disk is mounted at root after the initial one - could maybe ignore
-    if(strcmp(dir, "/") == 0) {
-        printf("unmounting root\n");
-        free(disk);
-        free(root->child);
-        free(root);
-        int outcome = fclose(firstDisk);
-        if(outcome != 0) {
-            printf("Error unmounting disk\n");
-            return FAILURE;
-        }
-    }
-    return SUCCESS;
+
 }
 
 int main(){
@@ -269,7 +248,6 @@ int main(){
     free(root->child);
     free(root);
     */
-
 
 
 }
