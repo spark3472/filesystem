@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
     super->free_block++;
     //super->free_block = *((int*)(disk + data_start + super->free_block * blockSize));
     //made "file"
-    memcpy((disk + data_start + firstFree->dblocks[0]), contents, sizeof(contents));
+    memcpy((disk + data_start + firstFree->dblocks[0]*blockSize), contents, sizeof(contents));
 
     //set up directory entry
     strcpy(rootData->fileName,"letters.txt");
