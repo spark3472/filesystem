@@ -334,11 +334,11 @@ int main(int argc, char *argv[]){
     // set up and get ready to read stuff 
     // set up directory structure so root is root of disk
     // do log in
-    //int outcome = f_mount("./DISK", "/");
-    /*if(outcome == -1) {
+    int outcome = f_mount("./DISK", "/");
+    if(outcome == -1) {
       printf("Error mounting disk\n");
     }
-    */
+    
   } else {
     printf("No disk was found, please use \"format\" to create a disk.\n");
     printf("To format a disk, type \"format <name of file>\"\n");

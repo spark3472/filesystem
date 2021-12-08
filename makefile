@@ -1,14 +1,13 @@
-all: shell format sampleDisk library
+all: library shell format sampleDisk 
 
-library: vfs.c
+library: vfs.c vfs.h
 	gcc -g -Wall -fpic -c vfs.c 
-
-	gcc -o -libvfs.so vfs.o -shared
-
-shell2.0: shell.c
-	gcc -g -o shell shell.c -L. -lvfs -lreadline
+	gcc -shared -o libvfs.so vfs.o
 
 shell: shell.c
+	gcc -g -o shell shell.c -L. -lvfs -lreadline
+
+shell2.0: shell.c
 	gcc -Wall -g -o shell shell.c -lreadline
 
 format: format.c
