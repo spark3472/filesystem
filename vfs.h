@@ -102,6 +102,7 @@ typedef struct dirent{
 dirent dirTable[MAX_DT_SIZE];
 
 
+int f_open( char* path, int flags);
 
 size_t f_read(void *ptr, size_t size, int num, int fd);
 
