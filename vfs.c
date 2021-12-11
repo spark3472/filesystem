@@ -188,7 +188,7 @@ int f_seek(int offset, int whence, int fd)
         to_seek.offset = iNode->size - offset;
     }else if (whence == SEEK_SET)
     {
-        
+
     }
     
 
@@ -331,6 +331,8 @@ int f_mkdir(char* path, char* filename, int mode)
     void* next_free = inode_start + super->free_block * sizeof(inode);
     inode* next = (inode*)next_free;
     super->free_inode = next->next_inode;
+    free(dircurrent);
+    return 0;
     
 
 
@@ -347,7 +349,7 @@ int f_rmdir(char* path)
 
 
     
-
+    free(node);
 }
 int f_mount(char* filename, char* path_to_put)
 {
