@@ -6,6 +6,7 @@
 #include "format.h"
 #include <string.h>
 #include <signal.h>
+//fprintf stderrgit p
 //make tree root global in shell
 vnode_t *root;
 int num_open_files = 0;
