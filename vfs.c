@@ -6,16 +6,12 @@
 #include "format.h"
 #include <string.h>
 #include <signal.h>
-<<<<<<< HEAD
-//fprintf stderrgit p
-=======
 
 #define FAILURE -1
 #define SUCCESS 0
 
 int m_error;
 
->>>>>>> a87fbfa857365f1c13bb613673ed5dfac9073874
 //make tree root global in shell
 vnode_t *root;
 int num_open_files = 0;
@@ -87,18 +83,34 @@ int f_open( char* path, int flags)
     //error-checking to do:
         //wrong flag
         //file does not exist (flag based)
+
+    if (num_open_files == MAX_FT_SIZE)
+    {
+        //set m_error to max files opened
+    }
+
     vnode_t* vn = find(path);
     if(vn == NULL) {
         fprintf(stderr, "f_open: Error finding file\n");
         return FAILURE;
     }
     printf("%d\n", vn->inode);
-   
+    
     fileEntry entry;
     entry.flag = flags;//permissions
     entry.offset = 0; //position in stream
     entry.vn = vn;
-    fileTable[num_open_files] = entry;
+    for (int i = 0; i < MAX_FT_SIZE; i++)
+    {
+        fileEntry try = fileTable[i];
+        if (try.vn == NULL)
+        {
+            fileTable[i] = entry;
+            num_open_files++;// TO-DO: for checking if max number of files have been opened later
+            break;
+        }
+    }
+
     
     //return handle of file/directory
     int handle = num_open_files;
@@ -147,9 +159,16 @@ size_t f_write(vnode_t *vn, void *data, size_t size, int num, int fd)
 }
 
 
-int f_close(vnode_t *vn, int fd)
+int f_close(int fd)
 {
-  
+    if (num_open_files == 0)
+    {
+        //set m_error to EOF
+    }
+    fileEntry to_close = fileTable[fd];
+    to_close.vn = NULL;
+    num_open_files--;
+    return 0;
 }
 
 
@@ -165,10 +184,33 @@ int f_rewind(int fd)
 
 int f_stat(struct stat_t *buf, int fd)
 {
+    fileEntry to_stat = fileTable[fd];
+    if (to_stat.vn == NULL)
+    {
+        //set m_error to EOF
+        return -1;
+    }
+
+    buf->blocksize = blockSize;
+    buf->inode = to_stat.vn->inode;
+
+    void* node = disk;
+    node += inode_start + fileTable[fd].vn->inode * sizeof(inode);
+    inode* iNode = (inode*)node;
+
+    buf->gid = iNode->gid;
+    buf->n_links = iNode->nlink;
+    buf->size = iNode->size;
+    buf->uid = iNode->uid;
+    buf->permissions = to_stat.vn->permissions;
+    buf->mtime = iNode->mtime;
+
+    return 0;
+    
  
 }
 
-int f_remove(vnode_t *vn, const char *filename)
+int f_remove(char *path)
 {
   
 }
