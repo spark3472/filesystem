@@ -15,6 +15,7 @@ int m_error;
 //make tree root global in shell
 vnode_t *root;
 int num_open_files = 0;
+int num_open_dir = 0;
 int blockSize;
 int data_start;
 int inode_start;
@@ -107,15 +108,9 @@ int f_open( char* path, int flags)
         {
             fileTable[i] = entry;
             num_open_files++;// TO-DO: for checking if max number of files have been opened later
-            break;
+            return i;
         }
     }
-
-    
-    //return handle of file/directory
-    int handle = num_open_files;
-    num_open_files++;
-    return handle;
 }
 
 
@@ -153,7 +148,7 @@ size_t f_read(void *ptr, size_t size, int num, int fd)
     return data_to_read;
 }
 
-size_t f_write(vnode_t *vn, void *data, size_t size, int num, int fd)
+size_t f_write(void *data, size_t size, int num, int fd)
 {
 
 }
@@ -219,29 +214,102 @@ int f_remove(char *path)
 
 int f_opendir(char *path)
 {
+    if (num_open_dir == MAX_DT_SIZE)
+    {
+        //set m_error to full
+        return -1;
+    }
     
     vnode_t* node = malloc(sizeof(vnode_t));
     node = find(path);
+    dirent to_add;
+    to_add.vn = node;
+    
+    for (int i = 0; i < MAX_DT_SIZE; i++)
+    {
+        dirent try = dirTable[i];
+        if (try.vn == NULL)
+        {
+            dirTable[i] = to_add;
+            num_open_dir++;
+            return i;
+        }
+    }
+
+}
+
+//function returns a pointer to a dirent structure representing 
+//the next directory entry in the directory stream pointed to by dirp.
+struct dirent* f_readdir(int dirp)
+{
+    if (dirp >= MAX_DT_SIZE )
+    {
+        //end of stream
+        return NULL;
+
+    }
+    dirent try = dirTable[dirp + 1];
+    if (try.vn == NULL)
+    {
+        //set m_error to EOD? BEFORE CALLING READDIR: set m_error to 0 to differentiate between end of stream and error NULL returns
+        return NULL;
+    }
+    dirent* to_return = malloc(sizeof(dirent));
+    to_return->vn = try.vn;
+    return to_return;
+
+}
+
+int f_closedir(int dirp)
+{
+    if (num_open_dir == 0)
+    {
+        //set m_error to no open files
+        return -1;
+    }
+    dirent to_close = dirTable[dirp];
+    to_close.vn = NULL;
+    num_open_dir--;
+    return 0;
+
+}
+int f_mkdir(char* path, char* filename, int mode)
+{
+    vnode_t* dircurrent = malloc(sizeof(vnode_t));
+    dircurrent = find(path);
+
+
+    void* node = disk;
+    node += inode_start + dircurrent->inode * sizeof(inode);
+    inode* iNode = (inode*)node;
+    
+
+    node = disk + data_start + iNode->dblocks[0] * blockSize;
+
+    DirEntry* to_add = (DirEntry*)node;
+    while (to_add->nextFile != NULL)
+    {
+        to_add = to_add->nextFile;
+    }
+
+    to_add = to_add->nextFile;
+    strcpy(to_add->fileName, filename);
+    superblock *super = (superblock*)(disk + 512);
+    to_add->inodeNum = super->free_inode;
+
+    void* next_free = inode_start + super->free_block * sizeof(inode);
+    inode* next = (inode*)next_free;
+    super->free_inode = next->next_inode;
     
 
 
-}
-
-
-struct _DirEntry* f_readdir(vnode_t *vn, int* dirp)
-{
 
 }
-int f_closedir(vnode_t *vn, int* dirp)
+int f_rmdir(char* path)
 {
-
-}
-int f_mkdir(vnode_t *vn, const char *filename, int mode)
-{
-
-}
-int f_rmdir(vnode_t *vn, const char *filename)
-{
+    vnode_t* node = malloc(sizeof(vnode_t));
+    node = find(path);
+    
 
 }
 int f_mount(char* filename, char* path_to_put)
