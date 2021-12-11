@@ -243,7 +243,7 @@ void pwd() {
 void cat(char **files, int num) {
   int file;
   for(int i = 0; i < num; i++) {
-    file = f_open(files[i], "r");
+    file = f_open(files[i], OREAD);
     int n;
     int size = FILELENGTH;
     char buffer[size+1];
@@ -300,10 +300,11 @@ void more(char **files, int num) {
       printf("more: %s - no such file or directory\n", files[i]);
     } else {
       int n;
-      int size = 500;
+      int size = 10;
       char buffer[size+1];
       //read a set number of bytes at a time
       while((n = fread(&buffer, 1, size, file)) != 0) {
+        printf("Head of buffer\n");
         buffer[n] = '\0';
         printf("%s", buffer);
         //continue until the next new line
@@ -313,11 +314,17 @@ void more(char **files, int num) {
             printf("%s", smallBuffer);
           }
         }
+        printf("Getting char\n");
         c = getchar();
+        //scanf(" %c", &c);
+        //while ((getchar()) != '\n');
         //if q typed, exit
         if(c == 'q') {
           return;
         }
+        //char ch;
+        
+
       }
     }
     printf("\n");
@@ -532,12 +539,14 @@ int main(int argc, char *argv[]){
 
         int outTemp, inTemp;
         if(redir == TRUE && strcmp(redirection, "in") != 0) {
+          printf("Redirecting out\n");
           outTemp = open("temp.txt", O_RDWR|O_CREAT, 0600);
           if (-1 == dup2(outTemp, fileno(stdout))) {
             perror("Stdout redirection error");
             exit(0);
           }
         } else if(redir == TRUE && strcmp(redirection, "in") == 0) {
+          printf("Redirecting in\n");
           inTemp = open(fileRedirect, O_RDWR, 0600);
           if(inTemp == -1) {
             perror("Stdin redirection error");
@@ -658,13 +667,17 @@ int main(int argc, char *argv[]){
               cat2(currentArgs+1, length - 1);
             }
           } else {
-            cat2(fileRedirect, 1);
+            cat2(&fileRedirect, 1);
           }
         } else if(0 == strcmp(currentArgs[0], "more")) {
-          if(length == 1) {
-            printf("more: please enter file(s) to see\n");
+          if(strcmp(redirection, "in") != 0) {
+            if(length == 1) {
+              printf("more: please enter file(s) to see\n");
+            } else {
+              more(currentArgs+1, length - 1);
+            }
           } else {
-            more(currentArgs+1, length - 1);
+            more(&fileRedirect, 1);
           }
         } else if(0 == strcmp(currentArgs[0], "rm")) {
           int argPos = 1;

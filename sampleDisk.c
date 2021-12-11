@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
     //putting in correct info in the inode
     firstFree->next_inode = -1;
     firstFree->size = sizeof(contents) / 8;
-    firstFree->ctime = time(NULL);
+    firstFree->mtime = time(NULL);
     firstFree->file_type = FILE_TYPE;
 
     //firstFree->dblocks[0] = *((int*)(disk + data_start + super->free_block * blockSize));
