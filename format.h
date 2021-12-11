@@ -26,7 +26,7 @@ typedef struct inode {
     int uid;
     int gid;
     int mtime;
-    int atime;
+    int ctime;
     int dblocks[N_DBLOCKS];
     int iblocks[N_IBLOCKS];
     int i2block;
