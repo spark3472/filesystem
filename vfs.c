@@ -169,11 +169,42 @@ int f_close(int fd)
 
 int f_seek(int offset, int whence, int fd)
 {
+    if (num_open_files == 0 || fd > num_open_files || fd < 0)
+    {
+        //set m_error to file non existent
+        return -1;
+    }
+    fileEntry to_seek = fileTable[fd];
+    if (whence == SEEK_SET)
+    {
+        void* node = disk;
+        node += inode_start + to_seek.vn->inode * sizeof(inode);
+        inode* iNode = (inode*)node;
+        if (offset != 0)//can offset be negative?
+        {
+            //set m_error to attempt to access past end of file
+            return -1;
+        }
+        to_seek.offset = iNode->size - offset;
+    }else if (whence == SEEK_SET)
+    {
+        
+    }
+    
+
 
 }
 
 int f_rewind(int fd)
 {
+    if (num_open_files == 0 || fd > num_open_files || fd < 0)
+    {
+        //set m_error to file non existent
+        return -1;
+    }
+    fileEntry to_rewind = fileTable[fd];
+    to_rewind.offset = 0;
+
   
 }
 
@@ -309,6 +340,12 @@ int f_rmdir(char* path)
 {
     vnode_t* node = malloc(sizeof(vnode_t));
     node = find(path);
+
+    void* node = disk;
+    node += inode_start + node->inode * sizeof(inode);
+    inode* iNode = (inode*)node;
+
+
     
 
 }
