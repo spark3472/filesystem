@@ -52,6 +52,8 @@ char **toks;
 char *workingDirectory;
 char *parentDirectory;
 
+int amChild;
+
 /******PARSER******/
 
 /***** Code outline for parser and tokenizer from HW2Feedback slides *****/
@@ -239,14 +241,14 @@ void pwd() {
 }
 
 void cat(char **files, int num) {
-  FILE *file;
+  int file;
   for(int i = 0; i < num; i++) {
-    file = fopen(files[i], "r");
+    file = f_open(files[i], "r");
     int n;
     int size = FILELENGTH;
     char buffer[size+1];
-    if(file != NULL) {
-      while((n = fread(&buffer, 1, size, file)) != 0) {
+    if(file != -1) {
+      while((n = f_read(&buffer, 1, size, file)) != 0) {
         buffer[n] = '\0';
         printf("%s", buffer);
       }
@@ -322,20 +324,30 @@ void unmount(char *fileSys, char *location) {
   printf("doing unmount - needs to be modified\n");
 }
 
-
+void sig_handler(int signo) {
+  printf("Signal caught\n");
+  if(amChild == TRUE) {
+    printf("Am child\n");
+    exit(0);
+  }
+}
 
 int main(int argc, char *argv[]){
 
   //blocking listed signals in the shell so you can't quit it
   setpgid(0,0);
-  sigset_t sigset;
+  sigset_t sigset, sigset_old;
   sigemptyset(&sigset);
+  sigemptyset(&sigset_old);
   sigaddset(&sigset, SIGQUIT);
   sigaddset(&sigset, SIGTTIN);
   sigaddset(&sigset, SIGTTOU);
   sigaddset(&sigset, SIGINT);
+  //signal(SIGINT, sig_handler);
   sigaddset(&sigset, SIGTSTP);
-  sigprocmask(SIG_BLOCK, &sigset, NULL);
+  sigprocmask(SIG_BLOCK, &sigset, &sigset_old);
+
+  amChild = FALSE;
 
   //is this how you mount a disk???
   if(access("./DISK", F_OK ) == 0) {
@@ -345,10 +357,10 @@ int main(int argc, char *argv[]){
     // set up and get ready to read stuff 
     // set up directory structure so root is root of disk
     // do log in
-    /*int outcome = f_mount("./DISK", "/");
+    int outcome = f_mount("./DISK", "/");
     if(outcome == -1) {
       printf("Error mounting disk\n");
-    }*/
+    }
     
   } else {
     printf("No disk was found, please use \"format\" to create a disk.\n");
@@ -622,10 +634,15 @@ int main(int argc, char *argv[]){
         }
       } else {
 
+        //printf("Parent pgid: %d; ", getpgrp());
         pid_t pid;
         if((pid = fork()) == 0) {
+          amChild = TRUE;
           //puts the child process in its own process group
-          setpgid(getpid(),0);
+          setpgid(getpid(), 0);
+          //printf("Child pgid: %d\n", getpgrp());
+          //reset signal masks to default
+          sigprocmask(SIG_SETMASK, &sigset_old, NULL);
 
           int outTemp, inTemp;
           if(redir == TRUE && strcmp(redirection, "in") != 0) {
@@ -731,6 +748,8 @@ int main(int argc, char *argv[]){
   }
   free(toks);
   free(line);
+
+  f_unmount("/", 0);
 
   free(workingDirectory);
   free(parentDirectory);

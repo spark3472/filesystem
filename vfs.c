@@ -6,7 +6,16 @@
 #include "format.h"
 #include <string.h>
 #include <signal.h>
+<<<<<<< HEAD
 //fprintf stderrgit p
+=======
+
+#define FAILURE -1
+#define SUCCESS 0
+
+int m_error;
+
+>>>>>>> a87fbfa857365f1c13bb613673ed5dfac9073874
 //make tree root global in shell
 vnode_t *root;
 int num_open_files = 0;
@@ -24,6 +33,12 @@ void sighandler(int signo)
 vnode_t* find(char* path)
 {
     vnode_t* traverse = root;
+
+    if(root == NULL) {
+        printf("No root directory\n");
+        return NULL;
+    }
+
     if (strcmp(root->name, path) == 0)
     {
         printf("is root directory\n");
@@ -73,6 +88,10 @@ int f_open( char* path, int flags)
         //wrong flag
         //file does not exist (flag based)
     vnode_t* vn = find(path);
+    if(vn == NULL) {
+        fprintf(stderr, "f_open: Error finding file\n");
+        return FAILURE;
+    }
     printf("%d\n", vn->inode);
    
     fileEntry entry;
@@ -92,15 +111,32 @@ size_t f_read(void *ptr, size_t size, int num, int fd)
 {
     size_t data_to_read = size * num;
     fileEntry to_read = fileTable[fd];
-    printf("INODE NUMBER: %d\n", fileTable[fd].vn->inode);
+
+    if(to_read.vn == NULL) {
+        fprintf(stderr, "f_read: no file found\n");
+        return FAILURE;
+    }
+
+    //printf("INODE NUMBER: %d\n", fileTable[fd].vn->inode);
     
     void* node = disk;
-    node += inode_start + fileTable[fd].vn->inode * blockSize;
-    inode* get_offset = (inode*)node;
-    
-    node = disk + data_start + get_offset->dblocks[0] * blockSize;
+    node += inode_start + fileTable[fd].vn->inode * sizeof(inode);
+    inode* iNode = (inode*)node;
 
-    ptr = malloc(data_to_read);
+    /* realized this isn't the correct solution; have to keep track of the location
+       in the file (like fread does) so with consequtive freads will eventually reach the end */
+    // or come up with another way to read the whole file
+    if(iNode->size > data_to_read) {
+        int fittedNum = iNode->size / size;
+        int remainder = iNode->size % size;
+        num = fittedNum;
+        data_to_read = size * fittedNum;
+    }
+    
+    node = disk + data_start + iNode->dblocks[0] * blockSize;
+    //printf("Contents: %s\n", (char*)node);
+
+    //ptr = malloc(data_to_read);
     memccpy(ptr, node, num, size);
     return data_to_read;
 }
@@ -179,10 +215,10 @@ int f_mount(char* filename, char* path_to_put)
     rewind(fp);
 
     //read into buffer
-    void* disk = malloc(size);
+    disk = malloc(size);
     fread(disk, 1, size, fp);
-    rewind(fp);
-    fclose(fp);
+    //rewind(fp);
+    //fclose(fp);
 
     //info from superblock
     superblock *super = (superblock*)(disk + 512);
@@ -226,29 +262,47 @@ int f_mount(char* filename, char* path_to_put)
 
 
 }
-int f_umount(vnode_t *vn, const char *dir, int flags)
+int f_unmount(const char *dir, int flags)
 {
-
+    //unmounting whole file system
+    //corner case where other disk is mounted at root after the initial one - could maybe ignore
+    if(strcmp(dir, "/") == 0) {
+        printf("unmounting root\n");
+        free(disk);
+        free(root->child);
+        free(root);
+        int outcome = fclose(firstDisk);
+        if(outcome != 0) {
+            printf("Error unmounting disk\n");
+            return FAILURE;
+        }
+    }
+    return SUCCESS;
 }
 
 int main(){
 
-    printf("Mount %d\n",f_mount("DISK", "/"));
+    int mountOutcome = f_mount("DISK", "/");
+    printf("Mount %d\n", mountOutcome);
+    if(mountOutcome == -1) {
+        fprintf(stderr, "Error mounting\n");
+        exit(0);
+    }
     //printf("Mount %d\n",f_mount("./DISK", "/"));
 
     int fd = f_open("/letters.txt", ORDWR);
+    if(fd == -1) {
+        fprintf(stderr, "f_open error\n");
+        exit(0);
+    }
 
-    void* ptr = malloc(sizeof(char)*4);
-    f_read(ptr, 1, 3, fd);
+    char* ptr = malloc(sizeof(char)*4);
+    f_read(ptr, 4, 1, fd);
+
+    printf("File contents: %s\n", ptr);
+
+    free(ptr);
 
     f_unmount("/", 0);
-
-    /*
-    free(disk);
-    free(root->child->next);
-    free(root->child);
-    free(root);
-    */
-
 
 }
