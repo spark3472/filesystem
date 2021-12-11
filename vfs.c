@@ -117,9 +117,19 @@ size_t f_read(void *ptr, size_t size, int num, int fd)
     
     void* node = disk;
     node += inode_start + fileTable[fd].vn->inode * sizeof(inode);
-    inode* get_offset = (inode*)node;
+    inode* iNode = (inode*)node;
+
+    /* realized this isn't the correct solution; have to keep track of the location
+       in the file (like fread does) so with consequtive freads will eventually reach the end */
+    // or come up with another way to read the whole file
+    if(iNode->size > data_to_read) {
+        int fittedNum = iNode->size / size;
+        int remainder = iNode->size % size;
+        num = fittedNum;
+        data_to_read = size * fittedNum;
+    }
     
-    node = disk + data_start + get_offset->dblocks[0] * blockSize;
+    node = disk + data_start + iNode->dblocks[0] * blockSize;
     //printf("Contents: %s\n", (char*)node);
 
     //ptr = malloc(data_to_read);
@@ -283,7 +293,7 @@ int main(){
     }
 
     char* ptr = malloc(sizeof(char)*4);
-    f_read(ptr, 3, 1, fd);
+    f_read(ptr, 4, 1, fd);
 
     printf("File contents: %s\n", ptr);
 

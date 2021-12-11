@@ -23,6 +23,9 @@ sampleDisk: sampleDisk.c
 vfs: vfs.c vfs.h
 	gcc -g -o vfs vfs.c
 
+librarySetup:
+	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:.
+
 clean:
 	rm shell
 	rm format
