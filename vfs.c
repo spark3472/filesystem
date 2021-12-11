@@ -329,7 +329,7 @@ int f_mkdir(char* path, char* filename, int mode)
     superblock *super = (superblock*)(disk + 512);
     to_add->inodeNum = super->free_inode;
 
-    void* next_free = inode_start + super->free_block * sizeof(inode);
+    void* next_free = disk + inode_start + super->free_block * sizeof(inode);
     inode* next = (inode*)next_free;
     super->free_inode = next->next_inode;
     free(dircurrent);
@@ -341,11 +341,11 @@ int f_mkdir(char* path, char* filename, int mode)
 }
 int f_rmdir(char* path)
 {
-    vnode_t* node = malloc(sizeof(vnode_t));
-    node = find(path);
+    vnode_t* vn = malloc(sizeof(vnode_t));
+    vn = find(path);
 
     void* node = disk;
-    node += inode_start + node->inode * sizeof(inode);
+    node += inode_start + vn->inode * sizeof(inode);
     inode* iNode = (inode*)node;
 
 
@@ -439,6 +439,10 @@ int main(){
         exit(0);
     }
     //printf("Mount %d\n",f_mount("./DISK", "/"));
+    int dirp = f_opendir("/");
+    int check = f_closedir(dirp);
+    
+    
 
     int fd = f_open("/letters.txt", ORDWR);
     if(fd == -1) {
