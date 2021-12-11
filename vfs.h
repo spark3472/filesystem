@@ -103,6 +103,34 @@ dirent dirTable[MAX_DT_SIZE];
 
 
 
+size_t f_read(void *ptr, size_t size, int num, int fd);
+
+size_t f_write(void *data, size_t size, int num, int fd);
+
+int f_close(int fd);
+
+int f_seek(int offset, int whence, int fd);
+
+int f_rewind(int fd);
+
+int f_stat(struct stat_t *buf, int fd); 
+
+int f_remove(char *path);
+
+int f_opendir(char *path);
+
+struct dirent* f_readdir(int dirp);
+
+int f_closedir(int dirp);
+
+int f_mkdir(char* path, char* filename, int mode);
+
+int f_rmdir(char* path);
+
+int f_mount(char* filename, char* path_to_put);
+
+int f_unmount(const char *dir, int flags);
+
 
 
 

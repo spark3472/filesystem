@@ -5,7 +5,7 @@ setup:
 	./sampleDisk
 
 library: vfs.c vfs.h
-	gcc -g -Wall -fpic -c vfs.c 
+	gcc -g -fpic -c vfs.c 
 	gcc -shared -o libvfs.so vfs.o
 
 shell: shell.c

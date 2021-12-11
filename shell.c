@@ -259,6 +259,28 @@ void cat(char **files, int num) {
   }
 }
 
+void cat2(char **files, int num) {
+  FILE *file;
+  for(int i = 0; i < num; i++) {
+    printf("cat on %s\n", files[i]);
+    file = fopen(files[i], "r");
+    int n;
+    int size = FILELENGTH;
+    char buffer[size+1];
+    //printf("Made it to here, file is %d\n", file);
+    if(file != NULL) {
+      printf("Starting reading\n");
+      while((n = fread(&buffer, 1, size, file)) != 0) {
+        buffer[n] = '\0';
+        printf("%s", buffer);
+      }
+    } else {
+      printf("cat: %s - no such file or directory\n", files[i]);
+    }
+    printf("\n");
+  }
+}
+
 /*
 Prints a set amount of each file at a time (doesn't support line-by-line paging)
 Press q + enter to exit
@@ -342,7 +364,7 @@ int main(int argc, char *argv[]){
   sigaddset(&sigset, SIGQUIT);
   sigaddset(&sigset, SIGTTIN);
   sigaddset(&sigset, SIGTTOU);
-  sigaddset(&sigset, SIGINT);
+  //sigaddset(&sigset, SIGINT);
   //signal(SIGINT, sig_handler);
   sigaddset(&sigset, SIGTSTP);
   sigprocmask(SIG_BLOCK, &sigset, &sigset_old);
@@ -397,6 +419,7 @@ int main(int argc, char *argv[]){
     number = parser();
 
     if(number == 0) {
+      //can cause issues :( if things typed while command is executing throws double free
       free(toks);
       continue;
     }
@@ -453,7 +476,7 @@ int main(int argc, char *argv[]){
       char** currentArgs = getArgs(start, end);
       int length = end - start;
 
-      /* DO REDIRECTION HERE */
+      /* DOING REDIRECTION HERE */
       //char *redirection = malloc(4 * sizeof(char));
       strcpy(redirection, "no");
       char *fileRedirect = malloc(FILELENGTH * sizeof(char));
@@ -491,174 +514,183 @@ int main(int argc, char *argv[]){
           length -= 2;
         }      
       }
-      //printf("File out is %s\n", fileRedirect);
 
-      //redirection within here?? how??
+      //printf("Parent pgid: %d; ", getpgrp());
+      pid_t pid;
+      if((pid = fork()) == 0) {
+        amChild = TRUE;
+        //puts the child process in its own process group
+        setpgid(getpid(), 0);
+        //printf("Child pgid: %d\n", getpgrp());
+        //reset signal masks to default
+        //int outcome = sigprocmask(SIG_SETMASK, &sigset_old, NULL);
+        //int outcome = sigprocmask(SIG_UNBLOCK, &sigset, NULL);
+        //if(outcome == -1) {
+        //  printf("Error setting signal mask in child process\n");
+        //}
+        //signal(SIGINT, sig_handler);
 
-      if(0 == strcmp(currentArgs[0], "ls")) {
-        char flags[2] = "\0";
-        int argPos = 1;
-        int flagsSeen = 0;
-        char *fileName = NULL;
-        int skip = FALSE;
+        int outTemp, inTemp;
+        if(redir == TRUE && strcmp(redirection, "in") != 0) {
+          outTemp = open("temp.txt", O_RDWR|O_CREAT, 0600);
+          if (-1 == dup2(outTemp, fileno(stdout))) {
+            perror("Stdout redirection error");
+            exit(0);
+          }
+        } else if(redir == TRUE && strcmp(redirection, "in") == 0) {
+          inTemp = open(fileRedirect, O_RDWR, 0600);
+          if(inTemp == -1) {
+            perror("Stdin redirection error");
+            exit(0);
+          }
+          if (-1 == dup2(inTemp, fileno(stdin))) {
+            perror("Stdin redirection error");
+            exit(0);
+          }
+        }
         
-        //goes through each argument and classifies it as a filename or flag to feed to ls()
-        while(argPos < length) {
-          char *arg = currentArgs[argPos];
-          if(arg[0] == '-') {
-            if((arg[1] != 'l' || arg[1] != 'F') && arg[2] != '\0') {
-              printf("ls: invalid option -- '%s'\n'-l' and '-F' are the only supported flags.\n", arg);
-              skip = TRUE;
-              break;
-            }
-            flags[flagsSeen] = currentArgs[argPos][1];
-            flagsSeen++;
-          } else {
-            if(fileName == NULL) {
-              fileName = arg;
-            } else {
-              printf("ls only supports listing one directory - please enter %s on a seperate line\n", arg);
-              break;
-            }
-          }
-          argPos++;
-        }
-
-        if(skip == FALSE) {
-          ls(fileName, flags);
-        }
-      } else if(0 == strcmp(currentArgs[0], "chmod")) {
-        int skip = FALSE;
-        int directory = FALSE;
-        char *fileName = NULL;
-        char *permissions = NULL;
-
-        if(length < 3 || length > 4) {
-          printf("chmod: wrong number of arguments\n");
-          skip = TRUE;
-        } else {
-          permissions = currentArgs[1];
-          if(length == 3) {
-            fileName = currentArgs[2];
-          } else {
-            fileName = currentArgs[3];
-            if(0 != strcmp(currentArgs[2], "-r")) {
-              printf("chmod: unsupported flag\n");
-              skip = TRUE;
-            }
-            directory = TRUE;
-          }
-        }
-
-        if(skip == FALSE) {
-          chmod(fileName, permissions, directory);
-        }
-      } else if(0 == strcmp(currentArgs[0], "mkdir")) {
-        int argPos = 1;
-        //makes a directory for each given name
-        while(argPos < length) {
-          char *arg = currentArgs[argPos];
-          mkdir(arg);
-          argPos++;
-        }
-        //checks if no directory name was given
-        if(length == 1) {
-          printf("mkdir: please specify a directory name\n");
-        }
-      } else if(0 == strcmp(currentArgs[0], "rmdir")) {
-        int argPos = 1;
-        //removes the directory with each given name
-        while(argPos < length) {
-          char *arg = currentArgs[argPos];
-          rmdir_new(arg);
-          argPos++;
-        }
-        //checks if no directory name was given
-        if(length == 1) {
-          printf("rmdir: please specify a directory name\n");
-        }
-      } else if(0 == strcmp(currentArgs[0], "cd")) {
-        char *filePath = NULL;
-        int skip = FALSE;
-        
-        if(length == 2) {
-          filePath = currentArgs[1];
-        } else if(length > 2) {
-          printf("cd: too many arguments\n");
-          skip = TRUE;
-        }
-
-        if(skip == FALSE) {
-          cd(filePath);
-        }
-      } else if(0 == strcmp(currentArgs[0], "pwd")) {        
-        if(length > 1) {
-          printf("pwd: no arguments supported\n");
-        }
-        pwd();
-      } else if(0 == strcmp(currentArgs[0], "cat")) {
-        if(length == 1) {
-          printf("cat: please enter file(s) to see\n");
-        } else {
-          cat(currentArgs+1, length - 1);
-        }
-      } else if(0 == strcmp(currentArgs[0], "more")) {
-        if(length == 1) {
-          printf("more: please enter file(s) to see\n");
-        } else {
-          more(currentArgs+1, length - 1);
-        }
-      } else if(0 == strcmp(currentArgs[0], "rm")) {
-        int argPos = 1;
-        //removes each file given
-        while(argPos < length) {
-          char *arg = currentArgs[argPos];
-          rm(arg);
-          argPos++;
-        }
-        //checks if no file name was given
-        if(length == 1) {
-          printf("rm: please specify a file name\n");
-        }
-      } else if(0 == strcmp(currentArgs[0], "mount")) {
-        if(length == 3) {
-          mount(currentArgs[1], currentArgs[2]);
-        } else {
-          printf("mount: incorrect number of arguments\n");
-        }
-      } else if(0 == strcmp(currentArgs[0], "unmount")) {
-        if(length == 3) {
-          unmount(currentArgs[1], currentArgs[2]);
-        } else {
-          printf("mount: incorrect number of arguments\n");
-        }
-      } else {
-
-        //printf("Parent pgid: %d; ", getpgrp());
-        pid_t pid;
-        if((pid = fork()) == 0) {
-          amChild = TRUE;
-          //puts the child process in its own process group
-          setpgid(getpid(), 0);
-          //printf("Child pgid: %d\n", getpgrp());
-          //reset signal masks to default
-          sigprocmask(SIG_SETMASK, &sigset_old, NULL);
-
-          int outTemp, inTemp;
-          if(redir == TRUE && strcmp(redirection, "in") != 0) {
-            outTemp = open("temp.txt", O_RDWR|O_CREAT, 0600);
-            if (-1 == dup2(outTemp, fileno(stdout))) {
-              perror("Can't redirect stdout\n");
-              continue;
-            }
-          } else if(redir == TRUE && strcmp(redirection, "in") == 0) {
-            inTemp = open("temp.txt", O_RDWR|O_CREAT, 0600);
-            if (-1 == dup2(inTemp, fileno(stdin))) {
-              perror("Can't redirect stdin\n");
-              continue;
-            }
-          }
+        if(0 == strcmp(currentArgs[0], "ls2")) {
+          char flags[2] = "\0";
+          int argPos = 1;
+          int flagsSeen = 0;
+          char *fileName = NULL;
+          int skip = FALSE;
           
+          //goes through each argument and classifies it as a filename or flag to feed to ls()
+          while(argPos < length) {
+            char *arg = currentArgs[argPos];
+            if(arg[0] == '-') {
+              if((arg[1] != 'l' || arg[1] != 'F') && arg[2] != '\0') {
+                printf("ls: invalid option -- '%s'\n'-l' and '-F' are the only supported flags.\n", arg);
+                skip = TRUE;
+                break;
+              }
+              flags[flagsSeen] = currentArgs[argPos][1];
+              flagsSeen++;
+            } else {
+              if(fileName == NULL) {
+                fileName = arg;
+              } else {
+                printf("ls only supports listing one directory - please enter %s on a seperate line\n", arg);
+                break;
+              }
+            }
+            argPos++;
+          }
+
+          if(skip == FALSE) {
+            ls(fileName, flags);
+          }
+        } else if(0 == strcmp(currentArgs[0], "chmod")) {
+          int skip = FALSE;
+          int directory = FALSE;
+          char *fileName = NULL;
+          char *permissions = NULL;
+
+          if(length < 3 || length > 4) {
+            printf("chmod: wrong number of arguments\n");
+            skip = TRUE;
+          } else {
+            permissions = currentArgs[1];
+            if(length == 3) {
+              fileName = currentArgs[2];
+            } else {
+              fileName = currentArgs[3];
+              if(0 != strcmp(currentArgs[2], "-r")) {
+                printf("chmod: unsupported flag\n");
+                skip = TRUE;
+              }
+              directory = TRUE;
+            }
+          }
+
+          if(skip == FALSE) {
+            chmod(fileName, permissions, directory);
+          }
+        } else if(0 == strcmp(currentArgs[0], "mkdir")) {
+          int argPos = 1;
+          //makes a directory for each given name
+          while(argPos < length) {
+            char *arg = currentArgs[argPos];
+            mkdir(arg);
+            argPos++;
+          }
+          //checks if no directory name was given
+          if(length == 1) {
+            printf("mkdir: please specify a directory name\n");
+          }
+        } else if(0 == strcmp(currentArgs[0], "rmdir")) {
+          int argPos = 1;
+          //removes the directory with each given name
+          while(argPos < length) {
+            char *arg = currentArgs[argPos];
+            rmdir_new(arg);
+            argPos++;
+          }
+          //checks if no directory name was given
+          if(length == 1) {
+            printf("rmdir: please specify a directory name\n");
+          }
+        } else if(0 == strcmp(currentArgs[0], "cd")) {
+          char *filePath = NULL;
+          int skip = FALSE;
+          
+          if(length == 2) {
+            filePath = currentArgs[1];
+          } else if(length > 2) {
+            printf("cd: too many arguments\n");
+            skip = TRUE;
+          }
+
+          if(skip == FALSE) {
+            cd(filePath);
+          }
+        } else if(0 == strcmp(currentArgs[0], "pwd")) {        
+          if(length > 1) {
+            printf("pwd: no arguments supported\n");
+          }
+          pwd();
+        } else if(0 == strcmp(currentArgs[0], "cat")) {
+          if(strcmp(redirection, "in") != 0) {
+            if(length == 1) {
+              printf("cat: please enter file(s) to see\n");
+            } else {
+              cat2(currentArgs+1, length - 1);
+            }
+          } else {
+            cat2(fileRedirect, 1);
+          }
+        } else if(0 == strcmp(currentArgs[0], "more")) {
+          if(length == 1) {
+            printf("more: please enter file(s) to see\n");
+          } else {
+            more(currentArgs+1, length - 1);
+          }
+        } else if(0 == strcmp(currentArgs[0], "rm")) {
+          int argPos = 1;
+          //removes each file given
+          while(argPos < length) {
+            char *arg = currentArgs[argPos];
+            rm(arg);
+            argPos++;
+          }
+          //checks if no file name was given
+          if(length == 1) {
+            printf("rm: please specify a file name\n");
+          }
+        } else if(0 == strcmp(currentArgs[0], "mount")) {
+          if(length == 3) {
+            mount(currentArgs[1], currentArgs[2]);
+          } else {
+            printf("mount: incorrect number of arguments\n");
+          }
+        } else if(0 == strcmp(currentArgs[0], "unmount")) {
+          if(length == 3) {
+            unmount(currentArgs[1], currentArgs[2]);
+          } else {
+            printf("mount: incorrect number of arguments\n");
+          }
+        } else {
           if( -1 == execvp(currentArgs[0], currentArgs) ){
             //error message for our use
             /*char errmsg[64];
@@ -671,61 +703,62 @@ int main(int argc, char *argv[]){
             }
             free(toks);
             free(redirection);
-            
-            exit(0);
-          }
-        } else if (pid > 0) {
-          waitpid(pid, NULL, 0);
-        }
-        if(redir == TRUE && strcmp(redirection, "in") != 0) {
-          if(access("./temp.txt", F_OK ) == 0) {
-            fprintf(stderr, "Redirecting file things\n");
-
-            //read in UNIX file
-            FILE *inputfile = fopen("./temp.txt", "rwb");
-            if(!inputfile) {
-              fprintf(stderr, "Error redirecting input/output\n");
-              continue;
-            }
-
-            fseek(inputfile, 0L, SEEK_END);
-            int size = ftell(inputfile);
-            rewind(inputfile);
-            //reading file into memory to copy to our file system
-            void *file = malloc(size);
-            
-            size_t bytes = fread(file, 1, size, inputfile);
-            if (bytes != size) {
-              fprintf(stderr, "Error redirecting input/output\n");
-              continue;
-            }
-            fclose(inputfile);
-            remove("./temp.txt");
-
-            //copy to our file system
-            //MODIFY change to our library system calls
-
-            //set to create if doesn't exist; for >>, just set to append
-            FILE *outfile;
-            if (strcmp(redirection, "out") == 0) {
-              outfile = fopen(fileRedirect, "w");
-            } else if (strcmp(redirection, "app") == 0) {
-              outfile = fopen(fileRedirect, "a");
-            }
-            
-            if(!outfile) {
-              fprintf(stderr, "Error redirecting input/output\n");
-              continue;
-            }
-            fwrite(file, size, 1, outfile);
-            fclose(outfile);
-            free(file);
-          } else {
-            fprintf(stderr, "no file :( \n");
           }
         }
-
+        exit(0);
+        
+      } else if (pid > 0) {
+        waitpid(pid, NULL, 0);
       }
+      if(redir == TRUE && strcmp(redirection, "in") != 0) {
+        if(access("./temp.txt", F_OK ) == 0) {
+          fprintf(stderr, "Redirecting file things\n");
+
+          //read in UNIX file
+          FILE *inputfile = fopen("./temp.txt", "rwb");
+          if(!inputfile) {
+            fprintf(stderr, "Error redirecting input/output\n");
+            continue;
+          }
+
+          fseek(inputfile, 0L, SEEK_END);
+          int size = ftell(inputfile);
+          rewind(inputfile);
+          //reading file into memory to copy to our file system
+          void *file = malloc(size);
+          
+          size_t bytes = fread(file, 1, size, inputfile);
+          if (bytes != size) {
+            fprintf(stderr, "Error redirecting input/output\n");
+            continue;
+          }
+          fclose(inputfile);
+          remove("./temp.txt");
+
+          //copy to our file system
+          //MODIFY change to our library system calls
+
+          //set to create if doesn't exist; for >>, just set to append
+          FILE *outfile;
+          if (strcmp(redirection, "out") == 0) {
+            outfile = fopen(fileRedirect, "w");
+          } else if (strcmp(redirection, "app") == 0) {
+            outfile = fopen(fileRedirect, "a");
+          }
+          
+          if(!outfile) {
+            fprintf(stderr, "Error redirecting input/output\n");
+            continue;
+          }
+          fwrite(file, size, 1, outfile);
+          fclose(outfile);
+          free(file);
+        } else {
+          fprintf(stderr, "no file :( \n");
+        }
+      }
+
+      
 
       for(int i = 0; i < length; i++) {
         free(currentArgs[i]);
