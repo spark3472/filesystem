@@ -26,6 +26,7 @@ void sighandler(int signo)
 {
 
     free(disk);
+    //free vnode tree
 }
 vnode_t* find(char* path)
 {
