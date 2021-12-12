@@ -122,6 +122,8 @@ size_t f_read(void *ptr, size_t size, int num, int fd)
 {
     size_t data_to_read = size * num;
     fileEntry to_read = fileTable[fd];
+    size_t readSize = size;
+    int readNum = num;
 
     if(to_read.vn == NULL) {
         //fprintf(stderr, "f_read: no file found\n");
@@ -132,23 +134,43 @@ size_t f_read(void *ptr, size_t size, int num, int fd)
     node += inode_start + fileTable[fd].vn->inode * sizeof(inode);
     inode* iNode = (inode*)node;
 
+    node = disk + data_start + iNode->dblocks[0] * blockSize + to_read.offset;
     
-    //printf("\noffset: %d, size: %d\n", to_read.offset, iNode->size);
-    if(to_read.offset > iNode->size) {
+    //printf("\noffset: %d, size: %d; to read: %ld * %d\n", to_read.offset, iNode->size, size, num);
+    if(to_read.offset >= iNode->size) {
         return 0;
     } else if (to_read.offset + data_to_read > iNode->size) {
-        //do something 
-        //num = abs(to_read.offset + data_to_read > iNode->size) + 1;
-        //size = 1;
+        void *end = disk + data_start + iNode->dblocks[0] * blockSize + (iNode->size - 1);
+        for(int i = 0; i < 7; i++) {
+            if(*((int*)end) == EOF) {
+                //printf("EOF detecting %d from the end\n", i);
+                fileTable[fd].offset = iNode->size;
+                break;
+            }
+            end -= 1;
+        }
+    } else if((iNode->size - (to_read.offset + data_to_read)) < 8) {
+        void *closeToEnd = disk + data_start + iNode->dblocks[0] * blockSize + to_read.offset;
+        for(int i = 0; i < data_to_read; i++) {
+            if(*((int*)closeToEnd) == EOF) {
+                //printf("EOF detected %d from current location\n", i);
+                fileTable[fd].offset = iNode->size;
+                if(i == 0) {
+                    return 0;
+                }
+                break;
+            }
+            closeToEnd += 1;
+        }
     }
     
-    node = disk + data_start + iNode->dblocks[0] * blockSize + to_read.offset;
     //printf("Contents: %s\n", (char*)node);
 
     //ptr = malloc(data_to_read);
-    memccpy(ptr, node, num, size);
+    //memccpy(ptr, node, readNum, readSize);
+    memccpy(ptr, node, EOF, readSize*readNum);
     fileTable[fd].offset += data_to_read;
-    return data_to_read;
+    return readNum*readSize;
 }
 
 size_t f_write(void *data, size_t size, int num, int fd)

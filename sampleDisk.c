@@ -49,12 +49,12 @@ int main(int argc, char *argv[]) {
     inode *firstFree = (inode*)(disk + inode_start + super->free_inode*sizeof(inode));
     super->free_inode++;
 
-    char *contents = "abc";
+    char *contents = "abc\0\0\0\0";
 
     //putting in correct info in the inode
     firstFree->next_inode = -1;
     //firstFree->size = sizeof(contents) / 8;
-    firstFree->size = sizeof(contents);
+    firstFree->size = sizeof(contents) + sizeof(int*);
     firstFree->mtime = time(NULL);
     firstFree->file_type = FILE_TYPE;
 
