@@ -176,7 +176,7 @@ int f_seek(int offset, int whence, int fd)
         return -1;
     }
     fileEntry to_seek = fileTable[fd];
-    if (whence == SEEK_SET)
+    if (whence == SEEK_END)
     {
         void* node = disk;
         node += inode_start + to_seek.vn->inode * sizeof(inode);
@@ -189,7 +189,7 @@ int f_seek(int offset, int whence, int fd)
         to_seek.offset = iNode->size - offset;
     }else if (whence == SEEK_SET)
     {
-
+        
     }
     
 
