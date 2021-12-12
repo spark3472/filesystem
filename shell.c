@@ -240,6 +240,7 @@ void pwd() {
   printf("%s\n", workingDirectory);
 }
 
+//works when buffer is bigger than file length.... working on detecting EOF, will have to go in f_read
 void cat(char **files, int num) {
   int file;
   for(int i = 0; i < num; i++) {
@@ -248,7 +249,7 @@ void cat(char **files, int num) {
     int size = FILELENGTH;
     char buffer[size+1];
     if(file != -1) {
-      while((n = f_read(&buffer, 1, size, file)) != 0) {
+      while((n = f_read(&buffer, size, 1, file)) != 0) {
         buffer[n] = '\0';
         printf("%s", buffer);
       }
@@ -664,10 +665,10 @@ int main(int argc, char *argv[]){
             if(length == 1) {
               printf("cat: please enter file(s) to see\n");
             } else {
-              cat2(currentArgs+1, length - 1);
+              cat(currentArgs+1, length - 1);
             }
           } else {
-            cat2(&fileRedirect, 1);
+            cat(&fileRedirect, 1);
           }
         } else if(0 == strcmp(currentArgs[0], "more")) {
           if(strcmp(redirection, "in") != 0) {

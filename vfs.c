@@ -64,15 +64,18 @@ vnode_t* find(char* path)
         }
         while(ptr != NULL)
         {
-
-            for(traverse = traverse->child; traverse != NULL; traverse = traverse->next)
-            {
-                if (strcmp(traverse->name, ptr) == 0)
+            if(traverse != NULL) {
+                for(traverse = traverse->child; traverse != NULL; traverse = traverse->next)
                 {
-                    return traverse;
+                    if (strcmp(traverse->name, ptr) == 0)
+                    {
+                        return traverse;
+                    }
                 }
+                ptr = strtok(NULL, delim);
+            } else {
+                return NULL;
             }
-            ptr = strtok(NULL, delim);
             
         }
     }
@@ -96,7 +99,7 @@ int f_open( char* path, int flags)
         fprintf(stderr, "f_open: Error finding file\n");
         return FAILURE;
     }
-    printf("%d\n", vn->inode);
+    //printf("%d\n", vn->inode);
     
     fileEntry entry;
     entry.flag = flags;//permissions
@@ -121,31 +124,30 @@ size_t f_read(void *ptr, size_t size, int num, int fd)
     fileEntry to_read = fileTable[fd];
 
     if(to_read.vn == NULL) {
-        fprintf(stderr, "f_read: no file found\n");
+        //fprintf(stderr, "f_read: no file found\n");
         return FAILURE;
     }
-
-    //printf("INODE NUMBER: %d\n", fileTable[fd].vn->inode);
     
     void* node = disk;
     node += inode_start + fileTable[fd].vn->inode * sizeof(inode);
     inode* iNode = (inode*)node;
 
-    /* realized this isn't the correct solution; have to keep track of the location
-       in the file (like fread does) so with consequtive freads will eventually reach the end */
-    // or come up with another way to read the whole file
-    if(iNode->size > data_to_read) {
-        int fittedNum = iNode->size / size;
-        int remainder = iNode->size % size;
-        num = fittedNum;
-        data_to_read = size * fittedNum;
+    
+    //printf("\noffset: %d, size: %d\n", to_read.offset, iNode->size);
+    if(to_read.offset > iNode->size) {
+        return 0;
+    } else if (to_read.offset + data_to_read > iNode->size) {
+        //do something 
+        //num = abs(to_read.offset + data_to_read > iNode->size) + 1;
+        //size = 1;
     }
     
-    node = disk + data_start + iNode->dblocks[0] * blockSize;
+    node = disk + data_start + iNode->dblocks[0] * blockSize + to_read.offset;
     //printf("Contents: %s\n", (char*)node);
 
     //ptr = malloc(data_to_read);
     memccpy(ptr, node, num, size);
+    fileTable[fd].offset += data_to_read;
     return data_to_read;
 }
 
