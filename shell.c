@@ -157,10 +157,12 @@ int parser(){
   line = readline(shell_prompt);
   //ctrl-d
   if(line == NULL){
+    free(line);
     return 0;
   }
   //newline
   if(strcmp(line,"") == 0){
+    free(line);
     return 0;
   }
   t = init_tokenizer(line);
@@ -240,7 +242,7 @@ void pwd() {
   printf("%s\n", workingDirectory);
 }
 
-//works when buffer is bigger than file length.... working on detecting EOF, will have to go in f_read
+//works with small file - test with bigger file when have one
 void cat(char **files, int num) {
   int file;
   for(int i = 0; i < num; i++) {
@@ -286,7 +288,7 @@ void cat2(char **files, int num) {
 Prints a set amount of each file at a time (doesn't support line-by-line paging)
 Press q + enter to exit
 */
-void more(char **files, int num) {
+void more2(char **files, int num) {
   printf("Press enter to page through, and q + enter to exit\n");
   FILE *file;
   char c;
@@ -301,31 +303,76 @@ void more(char **files, int num) {
       printf("more: %s - no such file or directory\n", files[i]);
     } else {
       int n;
-      int size = 10;
+      int size = 100;
       char buffer[size+1];
       //read a set number of bytes at a time
       while((n = fread(&buffer, 1, size, file)) != 0) {
-        printf("Head of buffer\n");
+        //printf("Head of buffer\n");
         buffer[n] = '\0';
         printf("%s", buffer);
         //continue until the next new line
         if(buffer[size-1] != '\n') {
-          char smallBuffer[2];
+          char smallBuffer[] = {'\0', '\0'};
           while((n = fread(&smallBuffer, 1, 1, file)) != 0 && smallBuffer[0] != '\n') {
             printf("%s", smallBuffer);
           }
         }
-        printf("Getting char\n");
+
         c = getchar();
-        //scanf(" %c", &c);
-        //while ((getchar()) != '\n');
         //if q typed, exit
         if(c == 'q') {
           return;
         }
-        //char ch;
-        
 
+      }
+    }
+    printf("\n");
+    if(i != num-1) {
+      c = getchar();
+      //if q typed, exit
+      if(c == 'q') {
+        return;
+      }
+    }
+  }
+}
+
+//getting conditional jump etc in valgrind, investigate
+void more(char **files, int num) {
+  printf("Press enter to page through, and q + enter to exit\n");
+  int file;
+  char c;
+  //for each file...
+  for(int i = 0; i < num; i++) {
+    file = f_open(files[i], OREAD);
+    //if multiple files, print the name before each
+    if(num > 1) {
+      printf("==========\n%s\n==========\n", files[i]);
+    }
+    if(file == -1) {
+      printf("more: %s - no such file or directory\n", files[i]);
+    } else {
+      int n;
+      int size = 100;
+      char buffer[size+1];
+      //read a set number of bytes at a time
+      while((n = f_read(&buffer, 1, size, file)) != 0) {
+        //printf("Head of buffer\n");
+        buffer[n] = '\0';
+        printf("%s", buffer);
+        //continue until the next new line
+        if(buffer[size-1] != '\n') {
+          char smallBuffer[] = {'\0', '\0'};
+          while((n = f_read(&smallBuffer, 1, 1, file)) != 0 && smallBuffer[0] != '\n') {
+            printf("%s", smallBuffer);
+          }
+        }
+
+        c = getchar();        
+        //if q typed, exit
+        if(c == 'q') {
+          return;
+        }
       }
     }
     printf("\n");
@@ -428,7 +475,9 @@ int main(int argc, char *argv[]){
 
     if(number == 0) {
       //can cause issues :( if things typed while command is executing throws double free
-      free(toks);
+      if(toks == NULL) {
+        free(toks);
+      }
       continue;
     }
 
@@ -529,6 +578,7 @@ int main(int argc, char *argv[]){
         amChild = TRUE;
         //puts the child process in its own process group
         setpgid(getpid(), 0);
+        tcsetpgrp(STDIN_FILENO, getpid());
         //printf("Child pgid: %d\n", getpgrp());
         //reset signal masks to default
         //int outcome = sigprocmask(SIG_SETMASK, &sigset_old, NULL);
@@ -723,6 +773,7 @@ int main(int argc, char *argv[]){
         
       } else if (pid > 0) {
         waitpid(pid, NULL, 0);
+        tcsetpgrp(STDIN_FILENO, getpid());
       }
       if(redir == TRUE && strcmp(redirection, "in") != 0) {
         if(access("./temp.txt", F_OK ) == 0) {
