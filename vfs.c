@@ -12,7 +12,7 @@
 #define SUCCESS 0
 
 int m_error;
-
+enum {E_BADARGS, E_EOF, E_FNF, E_DNF};
 //make tree root global in shell
 vnode_t *root;
 int num_open_files = 0;
@@ -82,7 +82,7 @@ vnode_t* find(char* path)
     
 }
 
-int f_open( char* path, int flags)
+int f_open(char* path, char* filename, int flag)
 {
     
     //error-checking to do:
@@ -95,16 +95,65 @@ int f_open( char* path, int flags)
     }
 
     vnode_t* vn = find(path);
-    if(vn == NULL) {
-        fprintf(stderr, "f_open: Error finding file\n");
-        return FAILURE;
+
+    vnode_t* find_file = vn->child;
+    while (find_file != NULL && strcmp(find_file->name, filename) != 0)
+    {
+        find_file = find_file->next;
     }
-    //printf("%d\n", vn->inode);
+
+    if (find_file == NULL)
+    {
+        if (flag == OREAD || flag == ORDWR)//FNF error
+        {
+            m_error = E_FNF;
+            return -1;
+        }else //create file
+        {
+            vnode_t* new_file = malloc(sizeof(vnode_t));
+            superblock* super = (superblock*)(disk+blockSize);
+            new_file->child = NULL;
+            strcpy(new_file->name, filename);
+            new_file->permissions = flag;
+            new_file->type = FILE_TYPE;
+            
+            new_file->inode = super->free_inode; //assign inode for file
+
+            //assign free block to inode
+            void* to_inode = disk + inode_start + super->free_inode * sizeof(inode);
+            inode* node = (inode*)to_inode;
+            node->dblocks[0] = super->free_block;
+
+
+            //update free lists
+            super->free_inode = node->next_inode;
+            void* to_data = disk + data_start + super->free_block * blockSize;
+            int ptr = *(int*)to_data;
+            super->free_block = ptr;
+
+            //make it a child of current directory
+            find_file = new_file;
+
+        }
+    }
+
+    void* to_inode = disk + inode_start + find_file->inode * sizeof(inode);
+    inode* find_size = (inode*)to_inode;
+   
     
     fileEntry entry;
-    entry.flag = flags;//permissions
-    entry.offset = 0; //position in stream
-    entry.vn = vn;
+    entry.flag = flag;//permissions
+    if (flag == OAPPEND || flag == ORDAD)//position in stream
+    {
+        entry.offset = find_size->size;
+
+    }else
+    {
+        entry.offset = 0;
+    }
+    entry.vn = find_file;
+
+    //add file to file table
     for (int i = 0; i < MAX_FT_SIZE; i++)
     {
         fileEntry try = fileTable[i];
@@ -253,21 +302,44 @@ int f_seek(int offset, int whence, int fd)
         //set m_error to file non existent
         return -1;
     }
+
     fileEntry to_seek = fileTable[fd];
+    void* node = disk;
+    node += inode_start + to_seek.vn->inode * sizeof(inode);
+    inode* iNode = (inode*)node;
+    
     if (whence == SEEK_END)
     {
-        void* node = disk;
-        node += inode_start + to_seek.vn->inode * sizeof(inode);
-        inode* iNode = (inode*)node;
-        if (offset != 0)//can offset be negative?
+        if (offset > 0 || offset < iNode->size * -1)//has to be negative number between size of file and 0
         {
             //set m_error to attempt to access past end of file
             return -1;
         }
-        to_seek.offset = iNode->size - offset;
+        
+        to_seek.offset = iNode->size + offset;
+
     }else if (whence == SEEK_SET)
     {
+        if (offset < 0 || offset > iNode->size)//has to be positive number that is less than the size of the file
+        {
+            //set m_error to bad args cannot access before file
+            return -1;
+        }
+        to_seek.offset = offset;
+
         
+    }else if (whence == SEEK_CUR)
+    {
+        if(offset + to_seek.offset > iNode->size || offset + to_seek.offset < 0 )
+        {
+            //set m_error to bad args
+            return -1;
+        }
+        to_seek.offset += offset;
+    }else
+    {
+        //set m_error to bad args
+        return -1;
     }
     
 
@@ -395,6 +467,12 @@ int f_mkdir(char* path, char* filename, int mode)
 {
     vnode_t* dircurrent = malloc(sizeof(vnode_t));
     dircurrent = find(path);
+
+    if (dircurrent == NULL)
+    {
+        //set m_error to directory not found
+        return -1;
+    }
     superblock *super = (superblock*)(disk + 512);
 
     //make new vnode
@@ -437,6 +515,14 @@ int f_mkdir(char* path, char* filename, int mode)
     void* next_free = disk + inode_start + super->free_inode * sizeof(inode);
     inode* next = (inode*)next_free;
     super->free_inode = next->next_inode;
+
+    //assign a block to the new directory
+    void* free_block = disk + data_start + super->free_block * sizeof(inode);//find block
+    int ptr = *(int*)free_block;//get ptr to next block
+    next->dblocks[0] = super->free_block;//assign block to inode
+    super->free_block = ptr;//assign next free block ptr to super->free_block
+
+
 
     
     return 0;
@@ -573,7 +659,7 @@ int main(){
     
     
 
-    int fd = f_open("/letters.txt", ORDWR);
+    int fd = f_open("/", "letters.txt", OCREAT);
     if(fd == -1) {
         fprintf(stderr, "f_open error\n");
         exit(0);
