@@ -140,29 +140,10 @@ size_t f_read(void *ptr, size_t size, int num, int fd)
     if(to_read.offset >= iNode->size) {
         return 0;
     } else if (to_read.offset + data_to_read > iNode->size) {
-        void *end = disk + data_start + iNode->dblocks[0] * blockSize + (iNode->size - 1);
-        for(int i = 0; i < 7; i++) {
-            if(*((int*)end) == EOF) {
-                //printf("EOF detecting %d from the end\n", i);
-                fileTable[fd].offset = iNode->size;
-                break;
-            }
-            end -= 1;
-        }
-    } else if((iNode->size - (to_read.offset + data_to_read)) < 8) {
-        void *closeToEnd = disk + data_start + iNode->dblocks[0] * blockSize + to_read.offset;
-        for(int i = 0; i < data_to_read; i++) {
-            if(*((int*)closeToEnd) == EOF) {
-                //printf("EOF detected %d from current location\n", i);
-                fileTable[fd].offset = iNode->size;
-                if(i == 0) {
-                    return 0;
-                }
-                break;
-            }
-            closeToEnd += 1;
-        }
-    }
+        fileTable[fd].offset = iNode->size;
+        readSize = 1;
+        readNum = iNode->size - to_read.offset;
+    } 
     
     //printf("Contents: %s\n", (char*)node);
 

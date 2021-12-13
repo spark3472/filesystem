@@ -211,8 +211,25 @@ char** getArgs(int start, int end){
   return currentArguments;
 }
 
-void ls(char *fileName, char flags[2]) {
-  printf("doing ls - filename: %s, flags: %s\n", fileName, flags);
+/* Gets the absolute path of a file
+ * 
+ */
+char* getAbsPath(char *path) {
+  return strcat(workingDirectory, path);
+}
+
+
+void ls(char *pathList, char flags[2]) {
+  printf("doing ls - filename: %s, flags: %s\n", pathList, flags);
+  char *path = malloc(FILELENGTH);
+  if(strcmp(pathList, ".") == 0) {
+    strcpy(path, workingDirectory);
+  } else if(strcmp(pathList, "..") == 0) {
+    strcpy(path, parentDirectory);
+  } else {
+    strcpy(path, getAbsPath(pathList));
+  }
+  printf("path is %s\n", path);
   //support '.' and '..'
 }
 
@@ -223,6 +240,7 @@ void chmod(char *fileName, char *permisisons, int directory) {
 void mkdir(char *fileName) {
   printf("doing mkdir - filename: %s\n", fileName);
   //check if directory already exists
+
 }
 
 void rmdir_new(char *fileName) {
@@ -258,6 +276,7 @@ void cat(char **files, int num) {
     } else {
       printf("cat: %s - no such file or directory\n", files[i]);
     }
+    f_close(file);
     printf("\n");
   }
 }
@@ -383,6 +402,7 @@ void more(char **files, int num) {
         return;
       }
     }
+    f_close(file);
   }
 }
 
@@ -419,12 +439,12 @@ int main(int argc, char *argv[]){
   sigaddset(&sigset, SIGQUIT);
   sigaddset(&sigset, SIGTTIN);
   sigaddset(&sigset, SIGTTOU);
-  //sigaddset(&sigset, SIGINT);
-  //signal(SIGINT, sig_handler);
+  sigaddset(&sigset, SIGINT);
   sigaddset(&sigset, SIGTSTP);
   sigprocmask(SIG_BLOCK, &sigset, &sigset_old);
 
   amChild = FALSE;
+  int number;
 
   //is this how you mount a disk???
   if(access("./DISK", F_OK ) == 0) {
@@ -436,13 +456,61 @@ int main(int argc, char *argv[]){
     // do log in
     int outcome = f_mount("./DISK", "/");
     if(outcome == -1) {
-      printf("Error mounting disk\n");
+      fprintf(stderr, "Error mounting disk\n");
     }
     
   } else {
     printf("No disk was found, please use \"format\" to create a disk.\n");
-    printf("To format a disk, type \"format <name of file>\"\n");
-    //look for user input
+    printf("To format a disk, type \"./format DISK\"\n");
+    
+    int diskMounted = FALSE; 
+    while(diskMounted == FALSE) {
+      number = parser();
+      if(number == 0) {
+        if(toks == NULL) {
+          free(toks);
+        }
+        continue;
+      }
+      //if user types "exit", leave
+      if(0 == strcmp(toks[0], "./format")) {
+        pid_t pid;
+        if((pid = fork()) == 0) {
+          //puts the child process in its own process group
+          setpgid(getpid(), 0);
+          if( -1 == execvp(toks[0], toks) ){
+            fprintf(stderr, "%s: command not found\n", toks[0]);
+            for(int i = 0; i < number; i++){
+              free(toks[i]);
+            }
+            free(toks);
+          }
+          exit(0);
+          
+        } else if (pid > 0) {
+          waitpid(pid, NULL, 0);
+          tcsetpgrp(STDIN_FILENO, getpid());
+        }
+    
+      } else {
+        fprintf(stderr, "Please use \"format DISK\" to create a disk\n");
+      }
+
+      /*for(int i = 0; i < number; i++){
+        free(toks[i]);
+      }
+      free(toks);
+      free(line); */
+
+      int outcome = f_mount("./DISK", "/");
+      if(outcome == -1) {
+        fprintf(stderr, "Error mounting disk, try again\n");
+      } else {
+        diskMounted = TRUE;
+      }
+
+    }
+
   }
 
   int maxPathSize = FILELENGTH;
@@ -468,7 +536,7 @@ int main(int argc, char *argv[]){
   */
 
   //int aftersemi = 0;
-  int number;
+  
 
   while(1){
     number = parser();
@@ -572,6 +640,40 @@ int main(int argc, char *argv[]){
         }      
       }
 
+      if(0 == strcmp(currentArgs[0], "ls")) {
+          char flags[2] = "\0";
+          int argPos = 1;
+          int flagsSeen = 0;
+          char *fileName = NULL;
+          int skip = FALSE;
+          
+          //goes through each argument and classifies it as a filename or flag to feed to ls()
+          while(argPos < length) {
+            char *arg = currentArgs[argPos];
+            if(arg[0] == '-') {
+              if((arg[1] != 'l' || arg[1] != 'F') && arg[2] != '\0') {
+                printf("ls: invalid option -- '%s'\n'-l' and '-F' are the only supported flags.\n", arg);
+                skip = TRUE;
+                break;
+              }
+              flags[flagsSeen] = currentArgs[argPos][1];
+              flagsSeen++;
+            } else {
+              if(fileName == NULL) {
+                fileName = arg;
+              } else {
+                printf("ls only supports listing one directory - please enter %s on a seperate line\n", arg);
+                break;
+              }
+            }
+            argPos++;
+          }
+
+          if(skip == FALSE) {
+            ls(fileName, flags);
+          }
+        }
+
       //printf("Parent pgid: %d; ", getpgrp());
       pid_t pid;
       if((pid = fork()) == 0) {
@@ -579,14 +681,12 @@ int main(int argc, char *argv[]){
         //puts the child process in its own process group
         setpgid(getpid(), 0);
         tcsetpgrp(STDIN_FILENO, getpid());
-        //printf("Child pgid: %d\n", getpgrp());
+
         //reset signal masks to default
-        //int outcome = sigprocmask(SIG_SETMASK, &sigset_old, NULL);
-        //int outcome = sigprocmask(SIG_UNBLOCK, &sigset, NULL);
-        //if(outcome == -1) {
-        //  printf("Error setting signal mask in child process\n");
-        //}
-        //signal(SIGINT, sig_handler);
+        int outcome = sigprocmask(SIG_SETMASK, &sigset_old, NULL);
+        if(outcome == -1) {
+          printf("Error setting signal mask in child process\n");
+        }
 
         int outTemp, inTemp;
         if(redir == TRUE && strcmp(redirection, "in") != 0) {
@@ -609,7 +709,7 @@ int main(int argc, char *argv[]){
           }
         }
         
-        if(0 == strcmp(currentArgs[0], "ls2")) {
+        if(0 == strcmp(currentArgs[0], "ls")) {
           char flags[2] = "\0";
           int argPos = 1;
           int flagsSeen = 0;
