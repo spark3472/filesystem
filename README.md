@@ -7,12 +7,6 @@ CS355 Final Project HW7
 Library: <br >
 make <br  >
 
-<h2> Virtual File System </h2>
-Testing for:
-    - file to mount doesn't exist
-    - file to open doesn't exist
-    - file to read doesn't exist
-
 <h2>Introduction</h2>
 
 
@@ -26,10 +20,11 @@ Testing for:
 
 
 <h2> Disk Format </h2>
-
-<h3>Data Structures Implemented</h3>
-Data structures implemented are mostly linked lists and arrays. Arrays are used for the file and directory table while linked lists are used to keep track of the directories as they are opened, made, closed, or removed. 
-
+<h3>Data Structures</h3>
+<h4>Superblock</h4>
+<img width="174" alt="Screen Shot 2021-12-13 at 2 04 56 PM" src="https://user-images.githubusercontent.com/55250326/145872642-a3531555-1027-4304-b193-c472574efee9.png">
+<h4>Inode</h4>
+<img width="186" alt="Screen Shot 2021-12-13 at 2 05 04 PM" src="https://user-images.githubusercontent.com/55250326/145872702-70eec2c0-57ef-4cac-95ae-777e024973dd.png">
 
 <h2>Features</h2>
 
