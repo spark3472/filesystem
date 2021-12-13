@@ -87,6 +87,7 @@ fileEntry fileTable[MAX_FT_SIZE];
 
 typedef struct dirent{
     vnode_t* vn;
+    int where;
     
 }dirent;
 
@@ -120,7 +121,7 @@ int f_remove(char *path);
 
 int f_opendir(char *path);
 
-struct dirent* f_readdir(int dirp);
+DirEntry* f_readdir(int dirp);
 
 int f_closedir(int dirp);
 

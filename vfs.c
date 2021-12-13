@@ -33,13 +33,11 @@ vnode_t* find(char* path)
     vnode_t* traverse = root;
 
     if(root == NULL) {
-        printf("No root directory\n");
         return NULL;
     }
 
     if (strcmp(root->name, path) == 0)
     {
-        printf("is root directory\n");
         return traverse;
     }else{
         char to_seperate[255];
@@ -69,6 +67,7 @@ vnode_t* find(char* path)
                 {
                     if (strcmp(traverse->name, ptr) == 0)
                     {
+                        //printf("%d\n", traverse->inode);
                         return traverse;
                     }
                 }
@@ -175,6 +174,9 @@ size_t f_read(void *ptr, size_t size, int num, int fd)
 
 size_t f_write(void *data, size_t size, int num, int fd)
 {
+    //how many blocks needed
+    //check fd
+    //
 
 }
 
@@ -280,6 +282,7 @@ int f_opendir(char *path)
     node = find(path);
     dirent to_add;
     to_add.vn = node;
+    to_add.where = 0;
     
     for (int i = 0; i < MAX_DT_SIZE; i++)
     {
@@ -296,7 +299,7 @@ int f_opendir(char *path)
 
 //function returns a pointer to a dirent structure representing 
 //the next directory entry in the directory stream pointed to by dirp.
-struct dirent* f_readdir(int dirp)
+DirEntry* f_readdir(int dirp)
 {
     if (dirp >= MAX_DT_SIZE )
     {
@@ -304,15 +307,22 @@ struct dirent* f_readdir(int dirp)
         return NULL;
 
     }
-    dirent try = dirTable[dirp + 1];
-    if (try.vn == NULL)
+    dirent find_entry = dirTable[dirp];
+    vnode_t* find_inode = find_entry.vn;
+
+    void* to_inode = disk + inode_start + find_inode->inode * blockSize;
+    inode* iNode = (inode*)to_inode;
+
+    void* to_data = disk + data_start + iNode->dblocks[0] * blockSize;
+    DirEntry* child = (DirEntry*)to_data;
+
+    for (int i = 0; i < find_entry.where; i++)
     {
-        //set m_error to EOD? BEFORE CALLING READDIR: set m_error to 0 to differentiate between end of stream and error NULL returns
-        return NULL;
+        child = child->nextFile;
     }
-    dirent* to_return = malloc(sizeof(dirent));
-    to_return->vn = try.vn;
-    return to_return;
+    dirTable[dirp].where++;
+    return child;
+
 
 }
 
@@ -333,34 +343,51 @@ int f_mkdir(char* path, char* filename, int mode)
 {
     vnode_t* dircurrent = malloc(sizeof(vnode_t));
     dircurrent = find(path);
+    superblock *super = (superblock*)(disk + 512);
 
+    //make new vnode
+    vnode_t* new = malloc(sizeof(vnode_t));
+    new->inode = super->free_inode;
+    strcpy(new->name, filename);
+    new->permissions = mode;
+    new->type = DIRECTORY_TYPE;
+    new->next = NULL;
+    new->child = NULL;
 
-    void* node = disk;
-    node += inode_start + dircurrent->inode * sizeof(inode);
-    inode* iNode = (inode*)node;
-    
-
-    node = disk + data_start + iNode->dblocks[0] * blockSize;
-
-    DirEntry* to_add = (DirEntry*)node;
-    while (to_add->nextFile != NULL)
+    vnode_t* find_end = dircurrent->child;
+    while (find_end->next != NULL)
     {
-        to_add = to_add->nextFile;
+        find_end = find_end->next;
+    }
+    
+    find_end->next = new;
+
+    //Find current Directory Entry on physical system
+    void* node = disk + inode_start + dircurrent->inode * sizeof(inode);
+    inode* iNode = (inode*)node;
+    void* to_data = disk + data_start + iNode->dblocks[0] * blockSize;
+
+    //find end of siblings
+    DirEntry* traverse = (DirEntry*)to_data;
+    while (traverse->nextFile != NULL)
+    {
+        traverse = traverse->nextFile;
     }
 
-    to_add = to_add->nextFile;
+    //make new directory entry for physical system
+    DirEntry* to_add = malloc(sizeof(DirEntry));
     strcpy(to_add->fileName, filename);
-    superblock *super = (superblock*)(disk + 512);
     to_add->inodeNum = super->free_inode;
+    to_add->nextFile = NULL;
+    traverse->nextFile = to_add;
 
-    void* next_free = disk + inode_start + super->free_block * sizeof(inode);
+    //update free inode list
+    void* next_free = disk + inode_start + super->free_inode * sizeof(inode);
     inode* next = (inode*)next_free;
     super->free_inode = next->next_inode;
-    free(dircurrent);
-    return 0;
+
     
-
-
+    return 0;
 
 }
 int f_rmdir(char* path)
@@ -371,10 +398,30 @@ int f_rmdir(char* path)
     void* node = disk;
     node += inode_start + vn->inode * sizeof(inode);
     inode* iNode = (inode*)node;
+    int num_blocks_to_free = iNode->size/blockSize;
+    int num_direct_blocks = 0;
+    if (num_blocks_to_free > 10)
+    {
+        num_direct_blocks = 10;
+        num_blocks_to_free -= 10;//indirect blocks
+    }else
+    {
+        num_direct_blocks = num_blocks_to_free;
+    }
+    superblock* super = (superblock*)(disk+512);
+    for (int i = 0; i < num_blocks_to_free; i++)
+    {
+        void* datablock = disk + data_start + iNode->dblocks[i] * blockSize;
+        
+        *(int*)datablock = super->free_block;
 
+        super->free_block =  iNode->dblocks[0];
+    }
+
+    iNode->next_inode = super->free_inode;
+    super->free_inode = iNode->next_inode;
 
     
-    free(node);
 }
 int f_mount(char* filename, char* path_to_put)
 {
@@ -464,7 +511,13 @@ int main(){
     }
     //printf("Mount %d\n",f_mount("./DISK", "/"));
     int dirp = f_opendir("/");
+    DirEntry* find = malloc(sizeof(DirEntry));
+    find = f_readdir(dirp);
+    f_mkdir("/", "new.txt", 0);
+    find = f_readdir(dirp);
     int check = f_closedir(dirp);
+    f_opendir("/new.txt");
+
     
     
 
