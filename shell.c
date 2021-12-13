@@ -215,7 +215,10 @@ char** getArgs(int start, int end){
  * 
  */
 char* getAbsPath(char *path) {
-  return strcat(workingDirectory, path);
+  //MODIFY free this
+  char *absPath = malloc(FILELENGTH);
+  strcpy(absPath, workingDirectory);
+  return strcat(absPath, path);
 }
 
 
@@ -573,11 +576,11 @@ int main(int argc, char *argv[]){
       }      
     }
 
-    /*printf("====\n");
+    printf("====\n");
     for(int i = 0; i < number; i++) {
       printf("%s\n", toks[i]);
     } 
-    printf("====\n");*/
+    printf("====\n");
 
     int tokensExamined = 0;
     int commandsRun = 0;
@@ -644,7 +647,7 @@ int main(int argc, char *argv[]){
           char flags[2] = "\0";
           int argPos = 1;
           int flagsSeen = 0;
-          char *fileName = NULL;
+          char *fileName = ".";
           int skip = FALSE;
           
           //goes through each argument and classifies it as a filename or flag to feed to ls()
@@ -660,7 +663,7 @@ int main(int argc, char *argv[]){
               flagsSeen++;
             } else {
               if(fileName == NULL) {
-                fileName = arg;
+                strcpy(fileName, arg);
               } else {
                 printf("ls only supports listing one directory - please enter %s on a seperate line\n", arg);
                 break;
@@ -713,7 +716,7 @@ int main(int argc, char *argv[]){
           char flags[2] = "\0";
           int argPos = 1;
           int flagsSeen = 0;
-          char *fileName = NULL;
+          char *fileName = ".";
           int skip = FALSE;
           
           //goes through each argument and classifies it as a filename or flag to feed to ls()
@@ -729,7 +732,7 @@ int main(int argc, char *argv[]){
               flagsSeen++;
             } else {
               if(fileName == NULL) {
-                fileName = arg;
+                strcpy(fileName, arg);
               } else {
                 printf("ls only supports listing one directory - please enter %s on a seperate line\n", arg);
                 break;

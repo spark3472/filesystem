@@ -6,6 +6,7 @@
 #include "format.h"
 #include <string.h>
 #include <signal.h>
+#include <math.h>
 
 #define FAILURE -1
 #define SUCCESS 0
@@ -188,6 +189,7 @@ size_t f_read(void *ptr, size_t size, int num, int fd)
     node += inode_start + fileTable[fd].vn->inode * sizeof(inode);
     inode* iNode = (inode*)node;
 
+    //ahh what if offset is bigger than blocksize......... update
     node = disk + data_start + iNode->dblocks[0] * blockSize + to_read.offset;
     
     //printf("\noffset: %d, size: %d; to read: %ld * %d\n", to_read.offset, iNode->size, size, num);
@@ -202,9 +204,12 @@ size_t f_read(void *ptr, size_t size, int num, int fd)
     //printf("Contents: %s\n", (char*)node);
 
     //ptr = malloc(data_to_read);
-    //memccpy(ptr, node, readNum, readSize);
-    memccpy(ptr, node, EOF, readSize*readNum);
+    memcpy(ptr, node, readNum*readSize);
+    //memccpy(ptr, node, EOF, readSize*readNum);
     fileTable[fd].offset += data_to_read;
+    if(to_read.offset > iNode->size) {
+        fileTable[fd].offset = iNode->size;
+    }
     return readNum*readSize;
 }
 
@@ -213,7 +218,72 @@ size_t f_write(void *data, size_t size, int num, int fd)
     //how many blocks needed
     //check fd
     //
+    size_t data_to_write = size * num;
+    fileEntry to_write = fileTable[fd];
+    size_t writeSize = size;
+    int writeNum = num;
 
+    superblock *super = (superblock*)(disk + 512);
+
+    //file doesn't exist
+    if(to_write.vn == NULL) {
+        //fprintf(stderr, "f_write: no file found\n");
+        return FAILURE;
+    }
+
+    //MODIFY make error if no free space left on disk and trying to write over file size
+    
+    void* node = (disk + inode_start + fileTable[fd].vn->inode*sizeof(inode));
+    inode* iNode = (inode*)node;
+
+    int currentBlocksUsed = (int)ceil((double)(iNode->size)/blockSize);
+    int totalBlocksNeeded = (int)ceil((double)(to_write.offset + data_to_write)/blockSize);
+
+    //if over current size of file
+    if(to_write.offset > iNode->size) {
+        return FAILURE;
+    }
+
+    //CHECK is this the right way to assign a new data block?
+    if(iNode->size == 0) {
+        iNode->dblocks[0] = super->free_block;
+        super->free_block = *(int*)(disk + data_start + super->free_block*blockSize);
+    }
+
+    if(totalBlocksNeeded - currentBlocksUsed != 0) {
+        int diff = totalBlocksNeeded - currentBlocksUsed;
+        if(totalBlocksNeeded > (N_DBLOCKS + N_IBLOCKS*(blockSize/sizeof(int)))) {
+            fprintf(stderr, "We don't support above singly indirect blocks for files currently. Try something smaller\n");
+            return FAILURE;
+        }
+        while(totalBlocksNeeded - currentBlocksUsed > 0) {
+            if(currentBlocksUsed < N_DBLOCKS) {
+                iNode->dblocks[currentBlocksUsed];
+            } else {
+                //allocate block for indirects like in defrag
+            }
+
+            currentBlocksUsed++;
+        }
+    }
+
+    int offset = 0;
+    int blocksIn = 0;
+    //check for rounding error
+    int inBlockOffset = to_write.offset % blockSize;
+
+    if(blocksIn < N_DBLOCKS) {
+        offset = iNode->dblocks[blocksIn];
+    }
+    
+    node = disk + data_start + offset*blockSize + inBlockOffset;
+
+    //adjust inode size (consider if overwriting existing memory)
+    iNode->size += data_to_write;
+
+    memcpy(node, data, data_to_write);
+    fileTable[fd].offset += data_to_write;
+    return data_to_write;
 }
 
 
@@ -224,6 +294,7 @@ int f_close(int fd)
         //set m_error to EOF
     }
     fileEntry to_close = fileTable[fd];
+    fileTable[fd].offset = 0;
     to_close.vn = NULL;
     num_open_files--;
     return 0;
@@ -631,12 +702,44 @@ int main(){
         exit(0);
     }
 
-    char* ptr = malloc(sizeof(char)*4);
-    f_read(ptr, 4, 1, fd);
-
+    char* ptr = malloc(sizeof(char)*3);
+    f_read(ptr, 3, 1, fd);
     printf("File contents: %s\n", ptr);
-
     free(ptr);
+
+    char *newText = "defg";
+    int outcome = f_write(newText, strlen(newText)+1, 1, fd);
+    if(outcome == -1) {
+        fprintf(stderr, "f_write error\n");
+        exit(0);
+    }
+
+    f_close(fd);
+    fd = f_open("/letters.txt", ORDWR);
+    if(fd == -1) {
+        fprintf(stderr, "f_open error\n");
+        exit(0);
+    }
+
+    ptr = malloc(sizeof(char)*9);
+    f_read(ptr, 9, 1, fd);
+    printf("File contents now: %s\n", ptr);
+    free(ptr);
+
+    f_close(fd);
+
+    /*int fd2 = f_open("/new.txt", OCREAT);
+    if(fd2 == -1) {
+        fprintf(stderr, "f_open error\n");
+        exit(0);
+    }
+    char *newText = "New text";
+    int outcome = f_write(newText, strlen(newText), 1, fd2);
+    if(outcome == -1) {
+        fprintf(stderr, "f_write error\n");
+        exit(0);
+    }*/
+
 
     f_unmount("/", 0);
 

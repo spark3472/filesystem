@@ -5,7 +5,7 @@ setup:
 	./sampleDisk
 
 library: vfs.c vfs.h
-	gcc -g -fpic -c vfs.c 
+	gcc -g -fpic -c vfs.c -lm
 	gcc -shared -o libvfs.so vfs.o
 
 shell: shell.c
@@ -21,7 +21,7 @@ sampleDisk: sampleDisk.c
 	gcc -g -o sampleDisk sampleDisk.c
 	
 vfs: vfs.c vfs.h
-	gcc -g -o vfs vfs.c
+	gcc -g -o vfs vfs.c -lm
 
 librarySetup:
 	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:.
