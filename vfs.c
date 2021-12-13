@@ -11,7 +11,7 @@
 #define SUCCESS 0
 
 int m_error;
-enum {E_BADARGS, E_EOF, E_FNF, E_DNF};
+enum errors{E_BADARGS, E_EOF, E_FNF, E_DNF, FT_FULL};
 //make tree root global in shell
 vnode_t *root;
 int num_open_files = 0;
@@ -84,13 +84,16 @@ vnode_t* find(char* path)
 int f_open(char* path, char* filename, int flag)
 {
     
-    //error-checking to do:
-        //wrong flag
-        //file does not exist (flag based)
+    if (flag != OREAD && flag != ORDWR && flag != ORDAD && flag != OWRITE && flag != OCREAT && flag != OAPPEND)
+    {
+        m_error = E_BADARGS;
+        return -1;
+    }
 
     if (num_open_files == MAX_FT_SIZE)
     {
-        //set m_error to max files opened
+        m_error = FT_FULL;
+        return -1;
     }
 
     vnode_t* vn = find(path);
@@ -156,12 +159,15 @@ int f_open(char* path, char* filename, int flag)
     for (int i = 0; i < MAX_FT_SIZE; i++)
     {
         fileEntry try = fileTable[i];
-        if (try.vn == NULL)
+        if (try.vn == NULL)//emptyyyy
         {
             fileTable[i] = entry;
             num_open_files++;// TO-DO: for checking if max number of files have been opened later
             return i;
-        }
+        }else if (try.vn->inode == entry.vn->inode)
+        {
+            return i;
+        } 
     }
 }
 
@@ -318,7 +324,39 @@ int f_stat(struct stat_t *buf, int fd)
 
 int f_remove(char *path)
 {
-  
+
+    vnode_t* vn = malloc(sizeof(vnode_t));
+    vn = find(path);
+
+    void* node = disk + inode_start + vn->inode * sizeof(inode);
+    inode* iNode = (inode*)node;
+    int num_blocks_to_free = iNode->size/blockSize;
+    int num_direct_blocks = 0;
+    if (num_blocks_to_free > 10)
+    {
+        num_direct_blocks = 10;
+        num_blocks_to_free -= 10;//indirect blocks
+    }else
+    {
+        num_direct_blocks = num_blocks_to_free;
+    }
+    //how to free indirect blocks???
+    superblock* super = (superblock*)(disk+512);
+    for (int i = 0; i < num_blocks_to_free; i++)
+    {
+        void* datablock = disk + data_start + iNode->dblocks[i] * blockSize;
+        
+        *(int*)datablock = super->free_block;
+
+        super->free_block =  iNode->dblocks[i];
+    }
+
+    iNode->next_inode = super->free_inode;
+    super->free_inode = vn->inode;
+
+
+    
+    
 }
 
 
@@ -462,8 +500,7 @@ int f_rmdir(char* path)
     vnode_t* vn = malloc(sizeof(vnode_t));
     vn = find(path);
 
-    void* node = disk;
-    node += inode_start + vn->inode * sizeof(inode);
+    void* node = disk + inode_start + vn->inode * sizeof(inode);
     inode* iNode = (inode*)node;
     int num_blocks_to_free = iNode->size/blockSize;
     int num_direct_blocks = 0;
@@ -482,11 +519,11 @@ int f_rmdir(char* path)
         
         *(int*)datablock = super->free_block;
 
-        super->free_block =  iNode->dblocks[0];
+        super->free_block =  iNode->dblocks[i];
     }
 
     iNode->next_inode = super->free_inode;
-    super->free_inode = iNode->next_inode;
+    super->free_inode = vn->inode;
 
     
 }
