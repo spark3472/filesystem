@@ -11,6 +11,9 @@ make <br  >
 
 
 <h2> Virtual File System </h2>
+<h3>Data Structures</h3>
+arrays: to keep track of the file table and the directory table <br >
+vnode: linked list where it stores it's children but also a sibling <br >
 Testing for:
     - file to mount doesn't exist
     - file to open doesn't exist
@@ -20,11 +23,13 @@ Testing for:
 
 
 <h2> Disk Format </h2>
-<h3>Data Structures</h3>
-<h4>Superblock</h4>
+<h3>Superblock</h3>
 <img width="174" alt="Screen Shot 2021-12-13 at 2 04 56 PM" src="https://user-images.githubusercontent.com/55250326/145872642-a3531555-1027-4304-b193-c472574efee9.png">
-<h4>Inode</h4>
+<h3>Inode</h3>
 <img width="186" alt="Screen Shot 2021-12-13 at 2 05 04 PM" src="https://user-images.githubusercontent.com/55250326/145872702-70eec2c0-57ef-4cac-95ae-777e024973dd.png">
+<h3>Physical Directory Entry</h3>
+<img width="421" alt="Screen Shot 2021-12-13 at 2 07 16 PM" src="https://user-images.githubusercontent.com/55250326/145872918-615daf71-5392-4018-863f-b4dd8f80a8b8.png">
+
 
 <h2>Features</h2>
 
