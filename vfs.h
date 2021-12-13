@@ -57,7 +57,7 @@ typedef struct vnode {
 } vnode_t;
 
 typedef struct fs_driver{
-    int				    (*f_open)(char *path, int flags);
+    int				    (*f_open)(char *path, char* filename, int flag);
     size_t 				(*f_read)(void *ptr, size_t size, int num, int fd);
     size_t 				(*f_write)(vnode_t *vn, void *data, size_t size, int num, int fd);
     int 				(*f_close)(int fd);
@@ -103,7 +103,7 @@ typedef struct dirent{
 dirent dirTable[MAX_DT_SIZE];
 
 
-int f_open( char* path, int flags);
+int f_open( char* path, char* filename, int flag);
 
 size_t f_read(void *ptr, size_t size, int num, int fd);
 
