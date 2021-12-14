@@ -405,6 +405,19 @@ int f_rewind(int fd)
     return SUCCESS;
 }
 
+int f_rewinddir(int dirp)
+{
+    if (num_open_dir == 0 || dirp > num_open_dir || dirp < 0)
+    {
+        //set m_error to file non existent
+        return FAILURE;
+    }
+
+    dirTable[dirp].where = 0;
+
+    return SUCCESS;
+}
+
 int f_stat(struct stat_t *buf, int fd)
 {
     fileEntry to_stat = fileTable[fd];
@@ -477,7 +490,7 @@ int f_opendir(char *path)
     if (num_open_dir == MAX_DT_SIZE)
     {
         //set m_error to full
-        return -1;
+        return FAILURE;
     }
     
     vnode_t* node = malloc(sizeof(vnode_t));
@@ -489,8 +502,15 @@ int f_opendir(char *path)
     dirent to_add;
     to_add.vn = node;
     to_add.where = 0;
+
+    if (num_open_dir == 0)
+    {
+        dirTable[0] = to_add;
+        num_open_dir++;
+        return 0;
+    }
     
-    for (int i = 0; i < MAX_DT_SIZE; i++)
+    for (int i = 0; i < num_open_dir; i++)
     {
         dirent try = dirTable[i];
         if (try.vn == NULL)
@@ -498,7 +518,7 @@ int f_opendir(char *path)
             dirTable[i] = to_add;
             num_open_dir++;
             return i;
-        }else if(try.vn->inode == to_add.vn->inode)//same instance
+        } else if(try.vn->inode == to_add.vn->inode)//same instance
         {
             return i;
         }
@@ -528,11 +548,13 @@ DirEntry* f_readdir(int dirp)
     for (int i = 0; i < find_entry.where; i++)
     {
         child = child->nextFile;
+        if(child == NULL) {
+            m_error = E_EOF;
+            return NULL;
+        }
     }
     dirTable[dirp].where++;
     return child;
-
-
 }
 
 int f_closedir(int dirp)
@@ -544,6 +566,7 @@ int f_closedir(int dirp)
     }
     dirent to_close = dirTable[dirp];
     to_close.vn = NULL;
+    to_close.where = 0;
     num_open_dir--;
     return 0;
 
@@ -770,16 +793,7 @@ int main(){
         exit(0);
     }
 
-<<<<<<< HEAD
-    f_close(fd);
-    fd = f_open("/", "letters.txt", ORDWR);
-    if(fd == -1) {
-        fprintf(stderr, "f_open error\n");
-        exit(0);
-    }
-=======
     f_rewind(fd);
->>>>>>> f1faf6bc6e7981fe9d9dfdf0e188a3134256febf
 
     ptr = malloc(sizeof(char)*9);
     f_read(ptr, 9, 1, fd);

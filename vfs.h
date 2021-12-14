@@ -121,6 +121,8 @@ int f_seek(int offset, int whence, int fd);
 
 int f_rewind(int fd);
 
+int f_rewinddir(int dirp);
+
 int f_stat(struct stat_t *buf, int fd); 
 
 int f_remove(char *path);
