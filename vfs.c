@@ -227,6 +227,7 @@ size_t f_write(void *data, size_t size, int num, int fd)
 
     //file doesn't exist
     if(to_write.vn == NULL) {
+        m_error = E_FNF;
         //fprintf(stderr, "f_write: no file found\n");
         return FAILURE;
     }
@@ -453,6 +454,9 @@ int f_opendir(char *path)
         {
             dirTable[i] = to_add;
             num_open_dir++;
+            return i;
+        }else if(try.vn->inode == to_add.vn->inode)//same instance
+        {
             return i;
         }
     }
@@ -715,7 +719,7 @@ int main(){
     }
 
     f_close(fd);
-    fd = f_open("/letters.txt", ORDWR);
+    fd = f_open("/", "letters.txt", ORDWR);
     if(fd == -1) {
         fprintf(stderr, "f_open error\n");
         exit(0);
