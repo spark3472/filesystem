@@ -210,9 +210,11 @@ char** getArgs(int start, int end){
 
 char **directoryPath;
 
-char** split(char *path, int directory) {
+char** split(char *path_split, int directory) {
   char **splitPath = malloc(FILELENGTH);
   char *token;
+  char *path = malloc(FILELENGTH);
+  strcpy(path, path_split);
   int count = 0;
   printf("Tokens:\n");
   token = strtok(path, "/");
@@ -237,6 +239,33 @@ char* getAbsPath(char *path, int directory) {
   return strcat(absPath, path);
 }
 
+int dirContains(char *dirPath, char *item) {
+  int contains = FALSE;
+  
+  int dir = f_opendir(dirPath);
+  if(dir == -1) {
+    fprintf(stderr, "ls: error opening directory\n");
+    return -1;
+  }
+
+  if(f_rewinddir(dir) == -1) {
+    fprintf(stderr, "ls: error with directory\n");
+    return -1;
+  }
+
+  DirEntry *child;
+
+  while((child = f_readdir(dir)) != NULL) {
+    if(strcmp(item, child->fileName) == 0) {
+      contains = TRUE;
+      break;
+    }
+  }
+
+  f_closedir(dir);
+
+  return contains;
+}
 
 void ls(char *pathList, char flags[2]) {
   //printf("doing ls - filename: %s, flags: %s\n", pathList, flags);
@@ -255,6 +284,7 @@ void ls(char *pathList, char flags[2]) {
   }
   printf("path is %s\n", path);
 
+  //must not be opening it
   int dir = f_opendir(path);
   if(dir == -1) {
     fprintf(stderr, "ls: error opening directory\n");
@@ -291,9 +321,9 @@ void mkdir(char *fileName) {
   char **splitPath = split(fileName, TRUE);
 
   int entries = 0;
-  printf("Split paths:\n");
+  //printf("Split paths:\n");
   while(splitPath[entries] != NULL) {
-    printf("%s\n", splitPath[entries]);
+    //printf("%s\n", splitPath[entries]);
     entries++;
   }
   //move back to last entry
@@ -304,8 +334,35 @@ void mkdir(char *fileName) {
   for(int i = 0; i <= entries; i++) {
     printf("%s\n", path);
     strcpy(parent, path);
+    strcat(path, splitPath[i]);
     int openDir;
-    if(( openDir = f_opendir(strcat(path, splitPath[i])) ) != -1) {
+    if(dirContains(parent, splitPath[i]) == TRUE) {
+      if(i == entries) {
+        fprintf(stderr, "mkdir: cannot create directory %s because it already exists\n", fileName);
+        return;
+      } else {
+        if((openDir = f_opendir(path)) == -1) {
+          fprintf(stderr, "mkdir: error opening %s\n", splitPath[i]);
+          return;
+        }
+      }
+
+    } else {
+      if(i == entries) {
+        if(f_mkdir(parent, splitPath[i], 777) == -1){
+          fprintf(stderr, "mkdir: error making directory %s\n", splitPath[i]);
+          return;
+        }
+        if((openDir = f_opendir(path)) == -1) {
+          fprintf(stderr, "mkdir: error opening %s\n", splitPath[i]);
+          return;
+        }
+      } else {
+        fprintf(stderr, "mkdir: cannot create directory %s: No such file or directory\n", fileName);
+        return;
+      }
+    }
+    /*if(( openDir = f_opendir(path) ) != -1) {
       if(i == entries) {
         fprintf(stderr, "mkdir: cannot create directory %s because it already exists\n", fileName);
         return;
@@ -316,7 +373,7 @@ void mkdir(char *fileName) {
         fprintf(stderr, "mkdir: error making directory %s\n", fileName);
         return;
       }
-    }
+    }*/
     
     strcat(path, "/");
   }

@@ -509,10 +509,10 @@ int f_opendir(char *path)
         num_open_dir++;
         return 0;
     }
-    
+
+    dirent try = dirTable[0];
     for (int i = 0; i < num_open_dir; i++)
     {
-        dirent try = dirTable[i];
         if (try.vn == NULL)
         {
             dirTable[i] = to_add;
@@ -522,6 +522,14 @@ int f_opendir(char *path)
         {
             return i;
         }
+        try = dirTable[i+1];
+    }
+    //check
+    if (try.vn == NULL)
+    {
+        dirTable[num_open_dir] = to_add;
+        num_open_dir++;
+        return num_open_dir-1;
     }
 
 }
