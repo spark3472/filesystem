@@ -8,9 +8,6 @@
 #include <signal.h>
 #include <math.h>
 
-#define FAILURE -1
-#define SUCCESS 0
-
 int m_error;
 enum errors{E_BADARGS, E_EOF, E_FNF, E_DNF, FT_FULL};
 //make tree root global in shell
@@ -100,8 +97,10 @@ int f_open(char* path, char* filename, int flag)
     vnode_t* vn = find(path);
 
     vnode_t* find_file = vn->child;
+    vnode_t* elder_sibling = vn->child;
     while (find_file != NULL && strcmp(find_file->name, filename) != 0)
     {
+        elder_sibling = find_file;
         find_file = find_file->next;
     }
 
@@ -114,7 +113,7 @@ int f_open(char* path, char* filename, int flag)
         }else //create file
         {
             vnode_t* new_file = malloc(sizeof(vnode_t));
-            superblock* super = (superblock*)(disk+blockSize);
+            superblock* super = (superblock*)(disk+512);
             new_file->child = NULL;
             strcpy(new_file->name, filename);
             new_file->permissions = flag;
@@ -127,7 +126,6 @@ int f_open(char* path, char* filename, int flag)
             inode* node = (inode*)to_inode;
             node->dblocks[0] = super->free_block;
 
-
             //update free lists
             super->free_inode = node->next_inode;
             void* to_data = disk + data_start + super->free_block * blockSize;
@@ -136,6 +134,27 @@ int f_open(char* path, char* filename, int flag)
 
             //make it a child of current directory
             find_file = new_file;
+            elder_sibling->next = new_file;
+
+            //could run into errors when directory gets bigger than one block and blocks aren't sequential
+            //Find current Directory Entry on physical system
+            node = disk + inode_start + vn->inode * sizeof(inode);
+            inode* iNode = (inode*)node;
+            to_data = disk + data_start + iNode->dblocks[0] * blockSize;
+
+            //find end of siblings
+            DirEntry* traverse = (DirEntry*)to_data;
+            while (traverse->nextFile != NULL)
+            {
+                traverse = traverse->nextFile;
+            }
+
+            //make new directory entry for physical system
+            DirEntry* to_add = malloc(sizeof(DirEntry));
+            strcpy(to_add->fileName, filename);
+            to_add->inodeNum = super->free_inode;
+            to_add->nextFile = NULL;
+            traverse->nextFile = to_add;
 
         }
     }
@@ -148,7 +167,7 @@ int f_open(char* path, char* filename, int flag)
     entry.flag = flag;//permissions
     if (flag == OAPPEND || flag == ORDAD)//position in stream
     {
-        entry.offset = find_size->size;
+        entry.offset = find_size->size - 1;
 
     }else
     {
@@ -167,6 +186,7 @@ int f_open(char* path, char* filename, int flag)
             return i;
         }else if (try.vn->inode == entry.vn->inode)
         {
+            fileTable[i] = entry;
             return i;
         } 
     }
@@ -245,42 +265,61 @@ size_t f_write(void *data, size_t size, int num, int fd)
         return FAILURE;
     }
 
-    //CHECK is this the right way to assign a new data block?
-    if(iNode->size == 0) {
-        iNode->dblocks[0] = super->free_block;
-        super->free_block = *(int*)(disk + data_start + super->free_block*blockSize);
-    }
+    int bigger = (totalBlocksNeeded - currentBlocksUsed >= 0)? TRUE : FALSE;
 
-    if(totalBlocksNeeded - currentBlocksUsed != 0) {
+    if(bigger == TRUE) {
         int diff = totalBlocksNeeded - currentBlocksUsed;
         if(totalBlocksNeeded > (N_DBLOCKS + N_IBLOCKS*(blockSize/sizeof(int)))) {
-            fprintf(stderr, "We don't support above singly indirect blocks for files currently. Try something smaller\n");
+            fprintf(stderr, "We don't support doubly or triply indirect blocks currently. Try something smaller\n");
             return FAILURE;
         }
+        int numSingleIndirects = N_IBLOCKS * (blockSize/sizeof(int));
         while(totalBlocksNeeded - currentBlocksUsed > 0) {
             if(currentBlocksUsed < N_DBLOCKS) {
-                iNode->dblocks[currentBlocksUsed];
+                iNode->dblocks[currentBlocksUsed] = super->free_block;
+                super->free_block = *(int*)(disk + data_start + super->free_block*blockSize);
             } else {
+                int iblockNum = (currentBlocksUsed - N_DBLOCKS)/(blockSize/sizeof(int));
+                int offsetInBlock = (currentBlocksUsed - N_DBLOCKS) % (blockSize/sizeof(int));
                 //allocate block for indirects like in defrag
+                if(offsetInBlock == 0) {
+                    //allocate indirect block
+                    iNode->iblocks[iblockNum] = super->free_block;
+                    super->free_block = *(int*)(disk + data_start + super->free_block*blockSize);
+                }
+                int* newDataLoc = (int*)(disk + data_start + iNode->iblocks[iblockNum]*blockSize + offsetInBlock*sizeof(int));
+                *newDataLoc = super->free_block;
+                super->free_block = *(int*)(disk + data_start + super->free_block*blockSize);
             }
-
             currentBlocksUsed++;
         }
     }
 
-    int offset = 0;
-    int blocksIn = 0;
-    //check for rounding error
+    //number of data blocks into the file the current stream is
+    int blocksIn = to_write.offset / blockSize;
+    //bytes into the current data block the current stream is
     int inBlockOffset = to_write.offset % blockSize;
-
-    if(blocksIn < N_DBLOCKS) {
-        offset = iNode->dblocks[blocksIn];
-    }
     
-    node = disk + data_start + offset*blockSize + inBlockOffset;
+    //location of the current data block
+    int dataBlockOffset = 0;
+    //finding that location
+    if(blocksIn < N_DBLOCKS) {
+        dataBlockOffset = iNode->dblocks[blocksIn];
+    } else if(blocksIn > (N_DBLOCKS + N_IBLOCKS*(blockSize/sizeof(int)))) {
+        fprintf(stderr, "We don't support doubly or triply indirect blocks currently. Try something smaller\n");
+        return FAILURE;
+    } else {
+        int iblockNum = (currentBlocksUsed - N_DBLOCKS)/(blockSize/sizeof(int));
+        int offsetInBlock = (currentBlocksUsed - N_DBLOCKS) % (blockSize/sizeof(int));
+        dataBlockOffset = *(int*)(disk + data_start + iNode->iblocks[iblockNum]*blockSize + offsetInBlock*sizeof(int));
+    }
+
+    node = disk + data_start + dataBlockOffset*blockSize + inBlockOffset;
 
     //adjust inode size (consider if overwriting existing memory)
-    iNode->size += data_to_write;
+    if(bigger == TRUE) {
+        iNode->size = to_write.offset + data_to_write;
+    }
 
     memcpy(node, data, data_to_write);
     fileTable[fd].offset += data_to_write;
@@ -360,10 +399,10 @@ int f_rewind(int fd)
         //set m_error to file non existent
         return -1;
     }
-    fileEntry to_rewind = fileTable[fd];
-    to_rewind.offset = 0;
+    //fileEntry to_rewind = fileTable[fd];
+    fileTable[fd].offset = 0;
 
-  
+    return SUCCESS;
 }
 
 int f_stat(struct stat_t *buf, int fd)
@@ -443,6 +482,10 @@ int f_opendir(char *path)
     
     vnode_t* node = malloc(sizeof(vnode_t));
     node = find(path);
+    if(node == NULL) {
+        m_error = E_FNF;
+        return FAILURE;
+    }
     dirent to_add;
     to_add.vn = node;
     to_add.where = 0;
@@ -476,7 +519,7 @@ DirEntry* f_readdir(int dirp)
     dirent find_entry = dirTable[dirp];
     vnode_t* find_inode = find_entry.vn;
 
-    void* to_inode = disk + inode_start + find_inode->inode * blockSize;
+    void* to_inode = disk + inode_start + find_inode->inode * sizeof(inode);
     inode* iNode = (inode*)to_inode;
 
     void* to_data = disk + data_start + iNode->dblocks[0] * blockSize;
@@ -505,6 +548,10 @@ int f_closedir(int dirp)
     return 0;
 
 }
+
+/* Creates a directory and sets it up with one empty data block
+ * 
+ */
 int f_mkdir(char* path, char* filename, int mode)
 {
     vnode_t* dircurrent = malloc(sizeof(vnode_t));
@@ -527,12 +574,16 @@ int f_mkdir(char* path, char* filename, int mode)
     new->child = NULL;
 
     vnode_t* find_end = dircurrent->child;
-    while (find_end->next != NULL)
-    {
-        find_end = find_end->next;
+    if(find_end == NULL) {
+        find_end = new;
+    } else {
+        while (find_end->next != NULL)
+        {
+            find_end = find_end->next;
+        }
+        
+        find_end->next = new;
     }
-    
-    find_end->next = new;
 
     //Find current Directory Entry on physical system
     void* node = disk + inode_start + dircurrent->inode * sizeof(inode);
@@ -689,18 +740,19 @@ int main(){
         exit(0);
     }
     //printf("Mount %d\n",f_mount("./DISK", "/"));
-    int dirp = f_opendir("/");
+    /*int dirp = f_opendir("/");
     DirEntry* find = malloc(sizeof(DirEntry));
     find = f_readdir(dirp);
     f_mkdir("/", "new.txt", 0);
     find = f_readdir(dirp);
     int check = f_closedir(dirp);
     f_opendir("/new.txt");
+    */
 
     
-    
+    //f_read test and f_write test with existing file
 
-    int fd = f_open("/", "letters.txt", OCREAT);
+    int fd = f_open("/", "letters.txt", ORDWR);
     if(fd == -1) {
         fprintf(stderr, "f_open error\n");
         exit(0);
@@ -711,38 +763,51 @@ int main(){
     printf("File contents: %s\n", ptr);
     free(ptr);
 
-    char *newText = "defg";
-    int outcome = f_write(newText, strlen(newText)+1, 1, fd);
+    char *addText = "defg";
+    int outcome = f_write(addText, strlen(addText)+1, 1, fd);
     if(outcome == -1) {
         fprintf(stderr, "f_write error\n");
         exit(0);
     }
 
+<<<<<<< HEAD
     f_close(fd);
     fd = f_open("/", "letters.txt", ORDWR);
     if(fd == -1) {
         fprintf(stderr, "f_open error\n");
         exit(0);
     }
+=======
+    f_rewind(fd);
+>>>>>>> f1faf6bc6e7981fe9d9dfdf0e188a3134256febf
 
     ptr = malloc(sizeof(char)*9);
     f_read(ptr, 9, 1, fd);
     printf("File contents now: %s\n", ptr);
     free(ptr);
 
-    f_close(fd);
+    f_close(fd); 
 
-    /*int fd2 = f_open("/new.txt", OCREAT);
+    int fd2 = f_open("/", "new.txt", OCREAT);
     if(fd2 == -1) {
         fprintf(stderr, "f_open error\n");
         exit(0);
     }
     char *newText = "New text";
-    int outcome = f_write(newText, strlen(newText), 1, fd2);
+    outcome = f_write(newText, strlen(newText)+1, 1, fd2);
     if(outcome == -1) {
         fprintf(stderr, "f_write error\n");
         exit(0);
-    }*/
+    }
+
+    f_rewind(fd2);
+
+    ptr = malloc(sizeof(char)*strlen(newText)+1);
+    f_read(ptr, strlen(newText)+1, 1, fd2);
+    printf("File contents: %s\n", ptr);
+    free(ptr);
+
+    f_close(fd2);
 
 
     f_unmount("/", 0);

@@ -4,6 +4,12 @@
 
 #define MAX_FT_SIZE 10000
 
+#define FAILURE -1
+#define SUCCESS 0
+
+#define TRUE  1
+#define FALSE 0
+
 //OREAD: open file for reading
 //ORDWR: open file for reading and writing
 //OWRITE: truncate file to zero or create file for writing

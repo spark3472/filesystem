@@ -38,9 +38,6 @@ https://askubuntu.com/questions/1022923/cannot-open-visual-studio-code
 #include <sys/wait.h>
 #include "vfs.h"
 
-#define TRUE  1
-#define FALSE 0
-
 #define FILELENGTH 256
 
 int mounted;
@@ -211,11 +208,30 @@ char** getArgs(int start, int end){
   return currentArguments;
 }
 
+char **directoryPath;
+
+char** split(char *path, int directory) {
+  char **splitPath = malloc(FILELENGTH);
+  char *token;
+  int count = 0;
+  printf("Tokens:\n");
+  token = strtok(path, "/");
+  while(token != NULL) {
+    splitPath[count] = token;
+    printf("%s\n", token);
+    token = strtok(NULL, "/");
+    count++;
+  }
+
+  return splitPath;
+}
+
 /* Gets the absolute path of a file
  * 
  */
-char* getAbsPath(char *path) {
+char* getAbsPath(char *path, int directory) {
   //MODIFY free this
+  split(path, directory);
   char *absPath = malloc(FILELENGTH);
   strcpy(absPath, workingDirectory);
   return strcat(absPath, path);
@@ -223,16 +239,36 @@ char* getAbsPath(char *path) {
 
 
 void ls(char *pathList, char flags[2]) {
-  printf("doing ls - filename: %s, flags: %s\n", pathList, flags);
+  //printf("doing ls - filename: %s, flags: %s\n", pathList, flags);
+  getAbsPath(pathList, TRUE);
   char *path = malloc(FILELENGTH);
   if(strcmp(pathList, ".") == 0) {
     strcpy(path, workingDirectory);
   } else if(strcmp(pathList, "..") == 0) {
     strcpy(path, parentDirectory);
   } else {
-    strcpy(path, getAbsPath(pathList));
+    //fprintf(stderr, "Not supported yet, use . or ..\n");
+    //strcpy(path, getAbsPath(pathList, TRUE));
+    strcpy(path, workingDirectory);
+    strcat(path, pathList);
+    strcat(path, "/");
   }
   printf("path is %s\n", path);
+
+  int dir = f_opendir(path);
+  if(dir == -1) {
+    fprintf(stderr, "Error opening directory\n");
+    return;
+  }
+
+  DirEntry *child;
+
+  while((child = f_readdir(dir)) != NULL) {
+    printf("%s\t", child->fileName);
+  }
+  printf("\n");
+
+  f_closedir(dir);
   //support '.' and '..'
 }
 
@@ -241,9 +277,41 @@ void chmod(char *fileName, char *permisisons, int directory) {
 }
 
 void mkdir(char *fileName) {
-  printf("doing mkdir - filename: %s\n", fileName);
+  //printf("doing mkdir - filename: %s\n", fileName);
   //check if directory already exists
+  //deal with permissions later
+  //deal with .. later
+  char *path = malloc(FILELENGTH);
+  strcpy(path, workingDirectory);
+  char **splitPath = split(fileName, TRUE);
 
+  int entries = 0;
+  printf("Split paths:\n");
+  while(splitPath[entries] != NULL) {
+    printf("%s\n", splitPath[entries]);
+    entries++;
+  }
+  //move back to last entry
+  entries--;
+
+  printf("successive paths\n");
+  char *parent = malloc(FILELENGTH);
+  for(int i = 0; i <= entries; i++) {
+    printf("%s\n", path);
+    strcpy(parent, path);
+    if(f_opendir(strcat(path, splitPath[i])) != -1) {
+      if(i == entries) {
+        fprintf(stderr, "mkdir: cannot create directory %s because it already exists\n", fileName);
+        return;
+      }
+    } else {
+      if(f_mkdir(parent, splitPath[i], 777) == -1){
+        fprintf(stderr, "mkdir: error making directory %s\n", fileName);
+        return;
+      }
+    }
+  }
+  strcat(path, "/");
 }
 
 void rmdir_new(char *fileName) {
@@ -267,7 +335,7 @@ void pwd() {
 void cat(char **files, int num) {
   int file;
   for(int i = 0; i < num; i++) {
-    file = f_open(files[i], OREAD);
+    file = f_open(workingDirectory, files[i], OREAD);
     int n;
     int size = FILELENGTH;
     char buffer[size+1];
@@ -280,7 +348,7 @@ void cat(char **files, int num) {
       printf("cat: %s - no such file or directory\n", files[i]);
     }
     f_close(file);
-    printf("\n");
+    //printf("\n");
   }
 }
 
@@ -366,7 +434,7 @@ void more(char **files, int num) {
   char c;
   //for each file...
   for(int i = 0; i < num; i++) {
-    file = f_open(files[i], OREAD);
+    file = f_open(workingDirectory, files[i], OREAD);
     //if multiple files, print the name before each
     if(num > 1) {
       printf("==========\n%s\n==========\n", files[i]);
@@ -643,39 +711,58 @@ int main(int argc, char *argv[]){
         }      
       }
 
-      if(0 == strcmp(currentArgs[0], "ls")) {
-          char flags[2] = "\0";
-          int argPos = 1;
-          int flagsSeen = 0;
-          char *fileName = ".";
-          int skip = FALSE;
-          
-          //goes through each argument and classifies it as a filename or flag to feed to ls()
-          while(argPos < length) {
-            char *arg = currentArgs[argPos];
-            if(arg[0] == '-') {
-              if((arg[1] != 'l' || arg[1] != 'F') && arg[2] != '\0') {
-                printf("ls: invalid option -- '%s'\n'-l' and '-F' are the only supported flags.\n", arg);
-                skip = TRUE;
-                break;
-              }
-              flags[flagsSeen] = currentArgs[argPos][1];
-              flagsSeen++;
-            } else {
-              if(fileName == NULL) {
-                strcpy(fileName, arg);
-              } else {
-                printf("ls only supports listing one directory - please enter %s on a seperate line\n", arg);
-                break;
-              }
-            }
-            argPos++;
-          }
-
-          if(skip == FALSE) {
-            ls(fileName, flags);
-          }
+      if(0 == strcmp(currentArgs[0], "mkdir")) {
+        int argPos = 1;
+        //makes a directory for each given name
+        while(argPos < length) {
+          char *arg = currentArgs[argPos];
+          mkdir(arg);
+          argPos++;
         }
+        //checks if no directory name was given
+        if(length == 1) {
+          printf("mkdir: please specify a directory name\n");
+        }
+      }
+
+      if(0 == strcmp(currentArgs[0], "ls")) {
+        char flags[2] = "\0";
+        int argPos = 1;
+        int flagsSeen = 0;
+        char *fileName = malloc(FILELENGTH);
+        strcpy(fileName, ".");
+        int skip = FALSE;
+        
+        //goes through each argument and classifies it as a filename or flag to feed to ls()
+        while(argPos < length) {
+          char *arg = currentArgs[argPos];
+          if(arg[0] == '-') {
+            if((arg[1] != 'l' || arg[1] != 'F') && arg[2] != '\0') {
+              printf("ls: invalid option -- '%s'\n'-l' and '-F' are the only supported flags.\n", arg);
+              skip = TRUE;
+              break;
+            }
+            flags[flagsSeen] = currentArgs[argPos][1];
+            flagsSeen++;
+          } else {
+            if(strcmp(fileName, ".") == 0) {
+              strcpy(fileName, arg);
+            } else {
+              printf("ls only supports listing one directory - please enter %s on a seperate line\n", arg);
+              break;
+            }
+          }
+          argPos++;
+        }
+
+        if(skip == FALSE) {
+          ls(fileName, flags);
+        }
+        free(fileName);
+      }
+
+
+      
 
       //printf("Parent pgid: %d; ", getpgrp());
       pid_t pid;
@@ -691,17 +778,44 @@ int main(int argc, char *argv[]){
           printf("Error setting signal mask in child process\n");
         }
 
-        int outTemp, inTemp;
+        //setting up stream redirection for stdout and stdin as necessary
+        int outTemp, inTemp; //not closing currently I think, add if problems arise
         if(redir == TRUE && strcmp(redirection, "in") != 0) {
-          printf("Redirecting out\n");
+          //for output redirection
+          //redirect stdout to temp.txt
           outTemp = open("temp.txt", O_RDWR|O_CREAT, 0600);
           if (-1 == dup2(outTemp, fileno(stdout))) {
             perror("Stdout redirection error");
             exit(0);
           }
         } else if(redir == TRUE && strcmp(redirection, "in") == 0) {
-          printf("Redirecting in\n");
-          inTemp = open(fileRedirect, O_RDWR, 0600);
+          //for input redirection
+          //make a temporary file on UNIX with the input redirection
+          int infd = f_open(workingDirectory, fileRedirect, ORDWR);
+          struct stat_t *buf = malloc(sizeof(struct stat_t));
+          int s = f_stat(buf, infd);
+          if(s == -1) {
+            fprintf(stderr, "Stdin redirection error\n");
+          }
+          
+          //read in file
+          void *ptr = malloc(buf->size);
+          f_read(ptr, buf->size, 1, infd);
+          
+          //copy into temp.txt
+          inTemp = open("./temp.txt", O_RDWR|O_CREAT, 0600);
+          int w = write(inTemp, ptr, buf->size);
+          if(w == -1) {
+            fprintf(stderr, "Stdin redirection error\n");
+            exit(0);
+          }
+          int l = lseek(inTemp, 0, SEEK_SET);
+          if(l == -1) {
+            fprintf(stderr, "Stdin redirection error\n");
+            exit(0);
+          }
+          free(ptr);
+          
           if(inTemp == -1) {
             perror("Stdin redirection error");
             exit(0);
@@ -713,7 +827,7 @@ int main(int argc, char *argv[]){
         }
         
         if(0 == strcmp(currentArgs[0], "ls")) {
-          char flags[2] = "\0";
+          /*char flags[2] = "\0";
           int argPos = 1;
           int flagsSeen = 0;
           char *fileName = ".";
@@ -731,7 +845,7 @@ int main(int argc, char *argv[]){
               flags[flagsSeen] = currentArgs[argPos][1];
               flagsSeen++;
             } else {
-              if(fileName == NULL) {
+              if(strcmp(fileName, ".") == 0) {
                 strcpy(fileName, arg);
               } else {
                 printf("ls only supports listing one directory - please enter %s on a seperate line\n", arg);
@@ -743,7 +857,7 @@ int main(int argc, char *argv[]){
 
           if(skip == FALSE) {
             ls(fileName, flags);
-          }
+          }*/
         } else if(0 == strcmp(currentArgs[0], "chmod")) {
           int skip = FALSE;
           int directory = FALSE;
@@ -771,7 +885,7 @@ int main(int argc, char *argv[]){
             chmod(fileName, permissions, directory);
           }
         } else if(0 == strcmp(currentArgs[0], "mkdir")) {
-          int argPos = 1;
+          /*int argPos = 1;
           //makes a directory for each given name
           while(argPos < length) {
             char *arg = currentArgs[argPos];
@@ -781,7 +895,7 @@ int main(int argc, char *argv[]){
           //checks if no directory name was given
           if(length == 1) {
             printf("mkdir: please specify a directory name\n");
-          }
+          }*/
         } else if(0 == strcmp(currentArgs[0], "rmdir")) {
           int argPos = 1;
           //removes the directory with each given name
@@ -880,7 +994,7 @@ int main(int argc, char *argv[]){
       }
       if(redir == TRUE && strcmp(redirection, "in") != 0) {
         if(access("./temp.txt", F_OK ) == 0) {
-          fprintf(stderr, "Redirecting file things\n");
+          //fprintf(stderr, "Redirecting file things\n");
 
           //read in UNIX file
           FILE *inputfile = fopen("./temp.txt", "rwb");
@@ -907,7 +1021,7 @@ int main(int argc, char *argv[]){
           //MODIFY change to our library system calls
 
           //set to create if doesn't exist; for >>, just set to append
-          FILE *outfile;
+          /*FILE *outfile;
           if (strcmp(redirection, "out") == 0) {
             outfile = fopen(fileRedirect, "w");
           } else if (strcmp(redirection, "app") == 0) {
@@ -919,11 +1033,30 @@ int main(int argc, char *argv[]){
             continue;
           }
           fwrite(file, size, 1, outfile);
-          fclose(outfile);
+          fclose(outfile);*/
+          int outfile;
+          outfile = f_open(workingDirectory, fileRedirect, OCREAT);
+          f_close(outfile);
+          //add file + directory options - function to parse out path name?
+          if (strcmp(redirection, "out") == 0) {
+            outfile = f_open(workingDirectory, fileRedirect, OWRITE);
+          } else if (strcmp(redirection, "app") == 0) {
+            outfile = f_open(workingDirectory, fileRedirect, OAPPEND);
+            f_write("\n", 1, 1, outfile);
+          }
+          
+          if(outfile == -1) {
+            fprintf(stderr, "Error redirecting input/output\n");
+            continue;
+          }
+          f_write(file, size, 1, outfile);
+          f_close(outfile);
           free(file);
         } else {
           fprintf(stderr, "no file :( \n");
         }
+      } else {
+        remove("./temp.txt");
       }
 
       

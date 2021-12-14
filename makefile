@@ -6,7 +6,7 @@ setup:
 
 library: vfs.c vfs.h
 	gcc -g -fpic -c vfs.c -lm
-	gcc -shared -o libvfs.so vfs.o
+	gcc -shared -o libvfs.so vfs.o -lm
 
 shell: shell.c
 	gcc -g -o shell shell.c -L. -lvfs -lreadline
