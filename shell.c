@@ -38,9 +38,6 @@ https://askubuntu.com/questions/1022923/cannot-open-visual-studio-code
 #include <sys/wait.h>
 #include "vfs.h"
 
-#define TRUE  1
-#define FALSE 0
-
 #define FILELENGTH 256
 
 int mounted;
@@ -267,7 +264,7 @@ void pwd() {
 void cat(char **files, int num) {
   int file;
   for(int i = 0; i < num; i++) {
-    file = f_open(files[i], OREAD);
+    file = f_open(workingDirectory, files[i], OREAD);
     int n;
     int size = FILELENGTH;
     char buffer[size+1];
@@ -366,7 +363,7 @@ void more(char **files, int num) {
   char c;
   //for each file...
   for(int i = 0; i < num; i++) {
-    file = f_open(files[i], OREAD);
+    file = f_open(workingDirectory, files[i], OREAD);
     //if multiple files, print the name before each
     if(num > 1) {
       printf("==========\n%s\n==========\n", files[i]);

@@ -8,9 +8,6 @@
 #include <signal.h>
 #include <math.h>
 
-#define FAILURE -1
-#define SUCCESS 0
-
 int m_error;
 enum {E_BADARGS, E_EOF, E_FNF, E_DNF};
 //make tree root global in shell
@@ -238,42 +235,61 @@ size_t f_write(void *data, size_t size, int num, int fd)
         return FAILURE;
     }
 
-    //CHECK is this the right way to assign a new data block?
-    if(iNode->size == 0) {
-        iNode->dblocks[0] = super->free_block;
-        super->free_block = *(int*)(disk + data_start + super->free_block*blockSize);
-    }
+    int bigger = (totalBlocksNeeded - currentBlocksUsed >= 0)? TRUE : FALSE;
 
-    if(totalBlocksNeeded - currentBlocksUsed != 0) {
+    if(bigger == TRUE) {
         int diff = totalBlocksNeeded - currentBlocksUsed;
         if(totalBlocksNeeded > (N_DBLOCKS + N_IBLOCKS*(blockSize/sizeof(int)))) {
-            fprintf(stderr, "We don't support above singly indirect blocks for files currently. Try something smaller\n");
+            fprintf(stderr, "We don't support doubly or triply indirect blocks currently. Try something smaller\n");
             return FAILURE;
         }
+        int numSingleIndirects = N_IBLOCKS * (blockSize/sizeof(int));
         while(totalBlocksNeeded - currentBlocksUsed > 0) {
             if(currentBlocksUsed < N_DBLOCKS) {
-                iNode->dblocks[currentBlocksUsed];
+                iNode->dblocks[currentBlocksUsed] = super->free_block;
+                super->free_block = *(int*)(disk + data_start + super->free_block*blockSize);
             } else {
+                int iblockNum = (currentBlocksUsed - N_DBLOCKS)/(blockSize/sizeof(int));
+                int offsetInBlock = (currentBlocksUsed - N_DBLOCKS) % (blockSize/sizeof(int));
                 //allocate block for indirects like in defrag
+                if(offsetInBlock == 0) {
+                    //allocate indirect block
+                    iNode->iblocks[iblockNum] = super->free_block;
+                    super->free_block = *(int*)(disk + data_start + super->free_block*blockSize);
+                }
+                int* newDataLoc = (int*)(disk + data_start + iNode->iblocks[iblockNum]*blockSize + offsetInBlock*sizeof(int));
+                *newDataLoc = super->free_block;
+                super->free_block = *(int*)(disk + data_start + super->free_block*blockSize);
             }
-
             currentBlocksUsed++;
         }
     }
 
-    int offset = 0;
-    int blocksIn = 0;
-    //check for rounding error
+    //number of data blocks into the file the current stream is
+    int blocksIn = to_write.offset / blockSize;
+    //bytes into the current data block the current stream is
     int inBlockOffset = to_write.offset % blockSize;
-
-    if(blocksIn < N_DBLOCKS) {
-        offset = iNode->dblocks[blocksIn];
-    }
     
-    node = disk + data_start + offset*blockSize + inBlockOffset;
+    //location of the current data block
+    int dataBlockOffset = 0;
+    //finding that location
+    if(blocksIn < N_DBLOCKS) {
+        dataBlockOffset = iNode->dblocks[blocksIn];
+    } else if(blocksIn > (N_DBLOCKS + N_IBLOCKS*(blockSize/sizeof(int)))) {
+        fprintf(stderr, "We don't support doubly or triply indirect blocks currently. Try something smaller\n");
+        return FAILURE;
+    } else {
+        int iblockNum = (currentBlocksUsed - N_DBLOCKS)/(blockSize/sizeof(int));
+        int offsetInBlock = (currentBlocksUsed - N_DBLOCKS) % (blockSize/sizeof(int));
+        dataBlockOffset = *(int*)(disk + data_start + iNode->iblocks[iblockNum]*blockSize + offsetInBlock*sizeof(int));
+    }
+
+    node = disk + data_start + dataBlockOffset*blockSize + inBlockOffset;
 
     //adjust inode size (consider if overwriting existing memory)
-    iNode->size += data_to_write;
+    if(bigger == TRUE) {
+        iNode->size = to_write.offset + data_to_write;
+    }
 
     memcpy(node, data, data_to_write);
     fileTable[fd].offset += data_to_write;
@@ -353,10 +369,10 @@ int f_rewind(int fd)
         //set m_error to file non existent
         return -1;
     }
-    fileEntry to_rewind = fileTable[fd];
-    to_rewind.offset = 0;
+    //fileEntry to_rewind = fileTable[fd];
+    fileTable[fd].offset = 0;
 
-  
+    return SUCCESS;
 }
 
 int f_stat(struct stat_t *buf, int fd)
@@ -657,9 +673,9 @@ int main(){
     f_opendir("/new.txt");
 
     
-    
+    //f_read test and f_write test with existing file
 
-    int fd = f_open("/", "letters.txt", OCREAT);
+    int fd = f_open("/", "letters.txt", ORDWR);
     if(fd == -1) {
         fprintf(stderr, "f_open error\n");
         exit(0);
@@ -670,38 +686,42 @@ int main(){
     printf("File contents: %s\n", ptr);
     free(ptr);
 
-    char *newText = "defg";
-    int outcome = f_write(newText, strlen(newText)+1, 1, fd);
+    char *addText = "defg";
+    int outcome = f_write(addText, strlen(addText)+1, 1, fd);
     if(outcome == -1) {
         fprintf(stderr, "f_write error\n");
         exit(0);
     }
 
-    f_close(fd);
-    fd = f_open("/letters.txt", ORDWR);
-    if(fd == -1) {
-        fprintf(stderr, "f_open error\n");
-        exit(0);
-    }
+    f_rewind(fd);
 
     ptr = malloc(sizeof(char)*9);
     f_read(ptr, 9, 1, fd);
     printf("File contents now: %s\n", ptr);
     free(ptr);
 
-    f_close(fd);
+    f_close(fd); 
 
-    /*int fd2 = f_open("/new.txt", OCREAT);
+    int fd2 = f_open("/", "new.txt", OCREAT);
     if(fd2 == -1) {
         fprintf(stderr, "f_open error\n");
         exit(0);
     }
     char *newText = "New text";
-    int outcome = f_write(newText, strlen(newText), 1, fd2);
+    outcome = f_write(newText, strlen(newText)+1, 1, fd2);
     if(outcome == -1) {
         fprintf(stderr, "f_write error\n");
         exit(0);
-    }*/
+    }
+
+    f_rewind(fd2);
+
+    ptr = malloc(sizeof(char)*strlen(newText)+1);
+    f_read(ptr, strlen(newText)+1, 1, fd2);
+    printf("File contents: %s\n", ptr);
+    free(ptr);
+
+    f_close(fd2);
 
 
     f_unmount("/", 0);
