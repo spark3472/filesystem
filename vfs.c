@@ -97,8 +97,10 @@ int f_open(char* path, char* filename, int flag)
     vnode_t* vn = find(path);
 
     vnode_t* find_file = vn->child;
+    vnode_t* elder_sibling = vn->child;
     while (find_file != NULL && strcmp(find_file->name, filename) != 0)
     {
+        elder_sibling = find_file;
         find_file = find_file->next;
     }
 
@@ -111,7 +113,7 @@ int f_open(char* path, char* filename, int flag)
         }else //create file
         {
             vnode_t* new_file = malloc(sizeof(vnode_t));
-            superblock* super = (superblock*)(disk+blockSize);
+            superblock* super = (superblock*)(disk+512);
             new_file->child = NULL;
             strcpy(new_file->name, filename);
             new_file->permissions = flag;
@@ -124,7 +126,6 @@ int f_open(char* path, char* filename, int flag)
             inode* node = (inode*)to_inode;
             node->dblocks[0] = super->free_block;
 
-
             //update free lists
             super->free_inode = node->next_inode;
             void* to_data = disk + data_start + super->free_block * blockSize;
@@ -133,6 +134,27 @@ int f_open(char* path, char* filename, int flag)
 
             //make it a child of current directory
             find_file = new_file;
+            elder_sibling->next = new_file;
+
+            //could run into errors when directory gets bigger than one block and blocks aren't sequential
+            //Find current Directory Entry on physical system
+            node = disk + inode_start + vn->inode * sizeof(inode);
+            inode* iNode = (inode*)node;
+            to_data = disk + data_start + iNode->dblocks[0] * blockSize;
+
+            //find end of siblings
+            DirEntry* traverse = (DirEntry*)to_data;
+            while (traverse->nextFile != NULL)
+            {
+                traverse = traverse->nextFile;
+            }
+
+            //make new directory entry for physical system
+            DirEntry* to_add = malloc(sizeof(DirEntry));
+            strcpy(to_add->fileName, filename);
+            to_add->inodeNum = super->free_inode;
+            to_add->nextFile = NULL;
+            traverse->nextFile = to_add;
 
         }
     }
@@ -145,7 +167,7 @@ int f_open(char* path, char* filename, int flag)
     entry.flag = flag;//permissions
     if (flag == OAPPEND || flag == ORDAD)//position in stream
     {
-        entry.offset = find_size->size;
+        entry.offset = find_size->size - 1;
 
     }else
     {
@@ -164,6 +186,7 @@ int f_open(char* path, char* filename, int flag)
             return i;
         }else if (try.vn->inode == entry.vn->inode)
         {
+            fileTable[i] = entry;
             return i;
         } 
     }
@@ -701,13 +724,14 @@ int main(){
         exit(0);
     }
     //printf("Mount %d\n",f_mount("./DISK", "/"));
-    int dirp = f_opendir("/");
+    /*int dirp = f_opendir("/");
     DirEntry* find = malloc(sizeof(DirEntry));
     find = f_readdir(dirp);
     f_mkdir("/", "new.txt", 0);
     find = f_readdir(dirp);
     int check = f_closedir(dirp);
     f_opendir("/new.txt");
+    */
 
     
     //f_read test and f_write test with existing file
