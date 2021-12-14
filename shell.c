@@ -257,7 +257,12 @@ void ls(char *pathList, char flags[2]) {
 
   int dir = f_opendir(path);
   if(dir == -1) {
-    fprintf(stderr, "Error opening directory\n");
+    fprintf(stderr, "ls: error opening directory\n");
+    return;
+  }
+
+  if(f_rewinddir(dir) == -1) {
+    fprintf(stderr, "ls: error with directory\n");
     return;
   }
 
@@ -299,19 +304,22 @@ void mkdir(char *fileName) {
   for(int i = 0; i <= entries; i++) {
     printf("%s\n", path);
     strcpy(parent, path);
-    if(f_opendir(strcat(path, splitPath[i])) != -1) {
+    int openDir;
+    if(( openDir = f_opendir(strcat(path, splitPath[i])) ) != -1) {
       if(i == entries) {
         fprintf(stderr, "mkdir: cannot create directory %s because it already exists\n", fileName);
         return;
       }
+      //f_closedir(openDir);
     } else {
       if(f_mkdir(parent, splitPath[i], 777) == -1){
         fprintf(stderr, "mkdir: error making directory %s\n", fileName);
         return;
       }
     }
+    
+    strcat(path, "/");
   }
-  strcat(path, "/");
 }
 
 void rmdir_new(char *fileName) {
