@@ -208,11 +208,30 @@ char** getArgs(int start, int end){
   return currentArguments;
 }
 
+char **directoryPath;
+
+char** split(char *path, int directory) {
+  char **splitPath = malloc(FILELENGTH);
+  char *token;
+  int count = 0;
+  printf("Tokens:\n");
+  token = strtok(path, "/");
+  while(token != NULL) {
+    splitPath[count] = token;
+    printf("%s\n", token);
+    token = strtok(NULL, "/");
+    count++;
+  }
+
+  return splitPath;
+}
+
 /* Gets the absolute path of a file
  * 
  */
-char* getAbsPath(char *path) {
+char* getAbsPath(char *path, int directory) {
   //MODIFY free this
+  split(path, directory);
   char *absPath = malloc(FILELENGTH);
   strcpy(absPath, workingDirectory);
   return strcat(absPath, path);
@@ -221,16 +240,20 @@ char* getAbsPath(char *path) {
 
 void ls(char *pathList, char flags[2]) {
   //printf("doing ls - filename: %s, flags: %s\n", pathList, flags);
+  getAbsPath(pathList, TRUE);
   char *path = malloc(FILELENGTH);
   if(strcmp(pathList, ".") == 0) {
     strcpy(path, workingDirectory);
   } else if(strcmp(pathList, "..") == 0) {
     strcpy(path, parentDirectory);
   } else {
-    fprintf(stderr, "Not supported yet, use . or ..\n");
-    strcpy(path, getAbsPath(pathList));
+    //fprintf(stderr, "Not supported yet, use . or ..\n");
+    //strcpy(path, getAbsPath(pathList, TRUE));
+    strcpy(path, workingDirectory);
+    strcat(path, pathList);
+    strcat(path, "/");
   }
-  //printf("path is %s\n", path);
+  printf("path is %s\n", path);
 
   int dir = f_opendir(path);
   if(dir == -1) {
@@ -254,9 +277,41 @@ void chmod(char *fileName, char *permisisons, int directory) {
 }
 
 void mkdir(char *fileName) {
-  printf("doing mkdir - filename: %s\n", fileName);
+  //printf("doing mkdir - filename: %s\n", fileName);
   //check if directory already exists
+  //deal with permissions later
+  //deal with .. later
+  char *path = malloc(FILELENGTH);
+  strcpy(path, workingDirectory);
+  char **splitPath = split(fileName, TRUE);
 
+  int entries = 0;
+  printf("Split paths:\n");
+  while(splitPath[entries] != NULL) {
+    printf("%s\n", splitPath[entries]);
+    entries++;
+  }
+  //move back to last entry
+  entries--;
+
+  printf("successive paths\n");
+  char *parent = malloc(FILELENGTH);
+  for(int i = 0; i <= entries; i++) {
+    printf("%s\n", path);
+    strcpy(parent, path);
+    if(f_opendir(strcat(path, splitPath[i])) != -1) {
+      if(i == entries) {
+        fprintf(stderr, "mkdir: cannot create directory %s because it already exists\n", fileName);
+        return;
+      }
+    } else {
+      if(f_mkdir(parent, splitPath[i], 777) == -1){
+        fprintf(stderr, "mkdir: error making directory %s\n", fileName);
+        return;
+      }
+    }
+  }
+  strcat(path, "/");
 }
 
 void rmdir_new(char *fileName) {
@@ -589,11 +644,11 @@ int main(int argc, char *argv[]){
       }      
     }
 
-    /*printf("====\n");
+    printf("====\n");
     for(int i = 0; i < number; i++) {
       printf("%s\n", toks[i]);
     } 
-    printf("====\n");*/
+    printf("====\n");
 
     int tokensExamined = 0;
     int commandsRun = 0;
@@ -655,6 +710,59 @@ int main(int argc, char *argv[]){
           length -= 2;
         }      
       }
+
+      if(0 == strcmp(currentArgs[0], "mkdir")) {
+        int argPos = 1;
+        //makes a directory for each given name
+        while(argPos < length) {
+          char *arg = currentArgs[argPos];
+          mkdir(arg);
+          argPos++;
+        }
+        //checks if no directory name was given
+        if(length == 1) {
+          printf("mkdir: please specify a directory name\n");
+        }
+      }
+
+      if(0 == strcmp(currentArgs[0], "ls")) {
+        char flags[2] = "\0";
+        int argPos = 1;
+        int flagsSeen = 0;
+        char *fileName = malloc(FILELENGTH);
+        strcpy(fileName, ".");
+        int skip = FALSE;
+        
+        //goes through each argument and classifies it as a filename or flag to feed to ls()
+        while(argPos < length) {
+          char *arg = currentArgs[argPos];
+          if(arg[0] == '-') {
+            if((arg[1] != 'l' || arg[1] != 'F') && arg[2] != '\0') {
+              printf("ls: invalid option -- '%s'\n'-l' and '-F' are the only supported flags.\n", arg);
+              skip = TRUE;
+              break;
+            }
+            flags[flagsSeen] = currentArgs[argPos][1];
+            flagsSeen++;
+          } else {
+            if(strcmp(fileName, ".") == 0) {
+              strcpy(fileName, arg);
+            } else {
+              printf("ls only supports listing one directory - please enter %s on a seperate line\n", arg);
+              break;
+            }
+          }
+          argPos++;
+        }
+
+        if(skip == FALSE) {
+          ls(fileName, flags);
+        }
+        free(fileName);
+      }
+
+
+      
 
       //printf("Parent pgid: %d; ", getpgrp());
       pid_t pid;
@@ -719,7 +827,7 @@ int main(int argc, char *argv[]){
         }
         
         if(0 == strcmp(currentArgs[0], "ls")) {
-          char flags[2] = "\0";
+          /*char flags[2] = "\0";
           int argPos = 1;
           int flagsSeen = 0;
           char *fileName = ".";
@@ -737,7 +845,7 @@ int main(int argc, char *argv[]){
               flags[flagsSeen] = currentArgs[argPos][1];
               flagsSeen++;
             } else {
-              if(fileName == NULL) {
+              if(strcmp(fileName, ".") == 0) {
                 strcpy(fileName, arg);
               } else {
                 printf("ls only supports listing one directory - please enter %s on a seperate line\n", arg);
@@ -749,7 +857,7 @@ int main(int argc, char *argv[]){
 
           if(skip == FALSE) {
             ls(fileName, flags);
-          }
+          }*/
         } else if(0 == strcmp(currentArgs[0], "chmod")) {
           int skip = FALSE;
           int directory = FALSE;
@@ -777,7 +885,7 @@ int main(int argc, char *argv[]){
             chmod(fileName, permissions, directory);
           }
         } else if(0 == strcmp(currentArgs[0], "mkdir")) {
-          int argPos = 1;
+          /*int argPos = 1;
           //makes a directory for each given name
           while(argPos < length) {
             char *arg = currentArgs[argPos];
@@ -787,7 +895,7 @@ int main(int argc, char *argv[]){
           //checks if no directory name was given
           if(length == 1) {
             printf("mkdir: please specify a directory name\n");
-          }
+          }*/
         } else if(0 == strcmp(currentArgs[0], "rmdir")) {
           int argPos = 1;
           //removes the directory with each given name

@@ -481,6 +481,10 @@ int f_opendir(char *path)
     
     vnode_t* node = malloc(sizeof(vnode_t));
     node = find(path);
+    if(node == NULL) {
+        m_error = E_FNF;
+        return FAILURE;
+    }
     dirent to_add;
     to_add.vn = node;
     to_add.where = 0;
@@ -511,7 +515,7 @@ DirEntry* f_readdir(int dirp)
     dirent find_entry = dirTable[dirp];
     vnode_t* find_inode = find_entry.vn;
 
-    void* to_inode = disk + inode_start + find_inode->inode * blockSize;
+    void* to_inode = disk + inode_start + find_inode->inode * sizeof(inode);
     inode* iNode = (inode*)to_inode;
 
     void* to_data = disk + data_start + iNode->dblocks[0] * blockSize;
@@ -540,6 +544,10 @@ int f_closedir(int dirp)
     return 0;
 
 }
+
+/* Creates a directory and sets it up with one empty data block
+ * 
+ */
 int f_mkdir(char* path, char* filename, int mode)
 {
     vnode_t* dircurrent = malloc(sizeof(vnode_t));
@@ -562,12 +570,16 @@ int f_mkdir(char* path, char* filename, int mode)
     new->child = NULL;
 
     vnode_t* find_end = dircurrent->child;
-    while (find_end->next != NULL)
-    {
-        find_end = find_end->next;
+    if(find_end == NULL) {
+        find_end = new;
+    } else {
+        while (find_end->next != NULL)
+        {
+            find_end = find_end->next;
+        }
+        
+        find_end->next = new;
     }
-    
-    find_end->next = new;
 
     //Find current Directory Entry on physical system
     void* node = disk + inode_start + dircurrent->inode * sizeof(inode);
