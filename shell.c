@@ -148,7 +148,7 @@ TOKENIZER init_tokenizer(char* line){
 TOKENIZER t;
 TOKENIZER u;
 char* line;
-char* shell_prompt = "shell> ";
+char* shell_prompt;
 int parser(){
   int n = 0;
   //valgrind doesn't like this line??
@@ -233,10 +233,12 @@ char** split(char *path_split, int directory) {
   int count = 0;
   //printf("Tokens:\n");
   //add root to the list
+  /*if(path_split[0] == '/') {
+    splitPath[count] = malloc(FILELENGTH);
+    strcpy(splitPath[count], "/");
+    count++;
+  }*/
   token = strtok(path, "/");
-  splitPath[count] = malloc(FILELENGTH);
-  strcpy(splitPath[count], "/");
-  count++;
   while(token != NULL) {
     splitPath[count] = malloc(FILELENGTH);
     strcpy(splitPath[count], token);
@@ -352,10 +354,10 @@ void mkdir(char *fileName) {
   //move back to last entry
   entries--;
 
-  //printf("successive paths\n");
+  printf("successive paths\n");
   char *parent = malloc(FILELENGTH);
   for(int i = 0; i <= entries; i++) {
-    //printf("%s\n", path);
+    printf("%s\n", path);
     strcpy(parent, path);
     strcat(path, splitPath[i]);
     int openDir;
@@ -431,7 +433,9 @@ void cd(char *filePath) {
 
   printf("successive paths\n");
   char *parent = malloc(FILELENGTH);
-  for(int i = 0; i < path_length; i++) {
+  strcpy(path, "/");
+  strcpy(parent, "/");
+  for(int i = 0; i < path_length-1; i++) {
     printf("%s\n", path);
     strcpy(parent, path);
     strcat(path, splitPath[i]);
@@ -456,7 +460,9 @@ void cd(char *filePath) {
 
   strcpy(workingDirectory, path);
   strcpy(parentDirectory, parent);
-  printf(". - %s, .. - %s\n", workingDirectory, parentDirectory);
+  printf(". is %s, .. is %s\n", workingDirectory, parentDirectory);
+  strcpy(shell_prompt, workingDirectory);
+  strcat(shell_prompt, "> ");
 
   for(int i = 0; i < path_length; i++) {
     free(splitPath[i]);
@@ -749,6 +755,9 @@ int main(int argc, char *argv[]){
 
   //int aftersemi = 0;
   
+  shell_prompt = malloc(maxPathSize);
+  strcpy(shell_prompt, workingDirectory);
+  strcat(shell_prompt, "> ");
 
   while(1){
     number = parser();

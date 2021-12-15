@@ -504,6 +504,7 @@ int f_opendir(char *path)
     node = find(path);
     if(node == NULL) {
         m_error = E_FNF;
+        free(node);
         return FAILURE;
     }
     dirent to_add;
@@ -527,6 +528,7 @@ int f_opendir(char *path)
             return i;
         } else if(try.vn->inode == to_add.vn->inode)//same instance
         {
+            free(node);
             return i;
         }
         try = dirTable[i+1];
@@ -538,7 +540,6 @@ int f_opendir(char *path)
         num_open_dir++;
         return num_open_dir-1;
     }
-
 }
 
 //function returns a pointer to a dirent structure representing 
@@ -601,6 +602,7 @@ int f_mkdir(char* path, char* filename, int mode)
     if (dircurrent == NULL)
     {
         //set m_error to directory not found
+        free(dircurrent);
         return -1;
     }
     superblock *super = (superblock*)(disk + 512);
@@ -663,7 +665,7 @@ int f_mkdir(char* path, char* filename, int mode)
 
 
 
-    
+    //free(dircurrent);
     return 0;
 
 }
