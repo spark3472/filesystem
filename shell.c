@@ -39,6 +39,7 @@ https://askubuntu.com/questions/1022923/cannot-open-visual-studio-code
 #include "vfs.h"
 
 #define FILELENGTH 256
+#define PATHLENGTH 15
 
 int mounted;
 FILE *disk;
@@ -210,8 +211,22 @@ char** getArgs(int start, int end){
 
 char **directoryPath;
 
+int pathLength(char *path_split) {
+  int length = 0;
+  char *token;
+  char *path = malloc(FILELENGTH);
+  strcpy(path, path_split);
+  token = strtok(path, "/");
+  while(token != NULL) {
+    token = strtok(NULL, "/");
+    length++;
+  }
+  free(path);
+  return length;
+}
+
 char** split(char *path_split, int directory) {
-  char **splitPath = malloc(FILELENGTH);
+  char **splitPath = malloc(sizeof(char*) * PATHLENGTH);
   char *token;
   char *path = malloc(FILELENGTH);
   strcpy(path, path_split);
@@ -219,12 +234,13 @@ char** split(char *path_split, int directory) {
   printf("Tokens:\n");
   token = strtok(path, "/");
   while(token != NULL) {
-    splitPath[count] = token;
+    splitPath[count] = malloc(FILELENGTH);
+    strcpy(splitPath[count], token);
     printf("%s\n", token);
     token = strtok(NULL, "/");
     count++;
   }
-
+  free(path);
   return splitPath;
 }
 
@@ -269,7 +285,7 @@ int dirContains(char *dirPath, char *item) {
 
 void ls(char *pathList, char flags[2]) {
   //printf("doing ls - filename: %s, flags: %s\n", pathList, flags);
-  getAbsPath(pathList, TRUE);
+  //getAbsPath(pathList, TRUE);
   char *path = malloc(FILELENGTH);
   if(strcmp(pathList, ".") == 0) {
     strcpy(path, workingDirectory);
@@ -303,6 +319,7 @@ void ls(char *pathList, char flags[2]) {
   }
   printf("\n");
 
+  free(path);
   //f_closedir(dir);
   //support '.' and '..'
 }
@@ -377,6 +394,13 @@ void mkdir(char *fileName) {
     
     strcat(path, "/");
   }
+  int path_length = pathLength(fileName);
+  for(int i = 0; i <= path_length; i++) {
+    free(splitPath[i]);
+  }
+  free(splitPath);
+  free(parent);
+  free(path);
 }
 
 void rmdir_new(char *fileName) {
