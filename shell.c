@@ -347,12 +347,12 @@ void mkdir(char *fileName) {
   int entries = 0;
   //printf("Split paths:\n");
   //maybe edit
-  while(splitPath[entries+1] != NULL) {
+  while(splitPath[entries] != NULL) {
     //printf("%s\n", splitPath[entries]);
     entries++;
   }
   //move back to last entry
-  //entries--;
+  entries--;
 
   printf("successive paths\n");
   char *parent = malloc(FILELENGTH);
@@ -994,7 +994,7 @@ int main(int argc, char *argv[]){
         }
         
         if(0 == strcmp(currentArgs[0], "ls")) {
-          char flags[2] = "\0";
+          /*char flags[2] = "\0";
           int argPos = 1;
           int flagsSeen = 0;
           char *fileName = malloc(FILELENGTH);
@@ -1026,7 +1026,7 @@ int main(int argc, char *argv[]){
           if(skip == FALSE) {
             ls(fileName, flags);
           }
-          free(fileName);
+          free(fileName);*/
         } else if(0 == strcmp(currentArgs[0], "chmod")) {
           int skip = FALSE;
           int directory = FALSE;

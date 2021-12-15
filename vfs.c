@@ -135,7 +135,7 @@ int f_open(char* path, char* filename, int flag)
 
             //make it a child of current directory
             find_file = new_file;
-            elder_sibling = new_file;
+            elder_sibling->next = find_file;
 
             //could run into errors when directory gets bigger than one block and blocks aren't sequential
             //Find current Directory Entry on physical system
