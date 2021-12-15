@@ -770,16 +770,7 @@ int main(){
         exit(0);
     }
 
-<<<<<<< HEAD
-    f_close(fd);
-    fd = f_open("/", "letters.txt", ORDWR);
-    if(fd == -1) {
-        fprintf(stderr, "f_open error\n");
-        exit(0);
-    }
-=======
     f_rewind(fd);
->>>>>>> f1faf6bc6e7981fe9d9dfdf0e188a3134256febf
 
     ptr = malloc(sizeof(char)*9);
     f_read(ptr, 9, 1, fd);
