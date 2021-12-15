@@ -124,6 +124,7 @@ int f_open(char* path, char* filename, int flag)
             //assign free block to inode
             void* to_inode = disk + inode_start + super->free_inode * sizeof(inode);
             inode* node = (inode*)to_inode;
+            node->size = 0;
             node->dblocks[0] = super->free_block;
 
             //update free lists
@@ -134,7 +135,7 @@ int f_open(char* path, char* filename, int flag)
 
             //make it a child of current directory
             find_file = new_file;
-            elder_sibling->next = new_file;
+            elder_sibling = new_file;
 
             //could run into errors when directory gets bigger than one block and blocks aren't sequential
             //Find current Directory Entry on physical system
@@ -252,7 +253,7 @@ size_t f_write(void *data, size_t size, int num, int fd)
     //file doesn't exist
     if(to_write.vn == NULL) {
         m_error = E_FNF;
-        //fprintf(stderr, "f_write: no file found\n");
+        fprintf(stderr, "f_write: no file found\n");
         return FAILURE;
     }
 
@@ -265,7 +266,9 @@ size_t f_write(void *data, size_t size, int num, int fd)
     int totalBlocksNeeded = (int)ceil((double)(to_write.offset + data_to_write)/blockSize);
 
     //if over current size of file
-    if(to_write.offset > iNode->size) {
+    //somehow file size is changed to 1
+    if(iNode->size > 1 && to_write.offset > iNode->size) {
+        fprintf(stderr, "f_write over current size of file\n");
         return FAILURE;
     }
 
@@ -654,8 +657,8 @@ int f_mkdir(char* path, char* filename, int mode)
 
     //assign a block to the new directory
     void* free_block = disk + data_start + super->free_block * blockSize;//find block
-    int ptr = *(int*)free_block;//get ptr to next block
     next->dblocks[0] = super->free_block;//assign block to inode
+    int ptr = *(int*)free_block;//get ptr to next block 
     super->free_block = ptr;//assign next free block ptr to super->free_block
 
 
@@ -798,6 +801,20 @@ int main(){
     int fd = f_open("/", "letters.txt", ORDWR);
     if(fd == -1) {
         fprintf(stderr, "f_open error\n");
+        exit(0);
+    }
+
+    int check = f_mkdir("/", "a", OCREAT );
+    if (check == -1)
+    {
+        fprintf(stderr, "could not make file\n");
+        exit(0);
+    }
+
+    int check2 = f_open("/a", "b.txt", OCREAT);
+    if (check2 == -1)
+    {
+        fprintf(stderr, "could not find grandchild\n");
         exit(0);
     }
 
