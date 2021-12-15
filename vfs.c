@@ -405,6 +405,19 @@ int f_rewind(int fd)
     return SUCCESS;
 }
 
+int f_rewinddir(int dirp)
+{
+    if (num_open_dir == 0 || dirp > num_open_dir || dirp < 0)
+    {
+        //set m_error to file non existent
+        return FAILURE;
+    }
+
+    dirTable[dirp].where = 0;
+
+    return SUCCESS;
+}
+
 int f_stat(struct stat_t *buf, int fd)
 {
     fileEntry to_stat = fileTable[fd];
@@ -477,7 +490,7 @@ int f_opendir(char *path)
     if (num_open_dir == MAX_DT_SIZE)
     {
         //set m_error to full
-        return -1;
+        return FAILURE;
     }
     
     vnode_t* node = malloc(sizeof(vnode_t));
@@ -489,19 +502,34 @@ int f_opendir(char *path)
     dirent to_add;
     to_add.vn = node;
     to_add.where = 0;
-    
-    for (int i = 0; i < MAX_DT_SIZE; i++)
+
+    if (num_open_dir == 0)
     {
-        dirent try = dirTable[i];
+        dirTable[0] = to_add;
+        num_open_dir++;
+        return 0;
+    }
+
+    dirent try = dirTable[0];
+    for (int i = 0; i < num_open_dir; i++)
+    {
         if (try.vn == NULL)
         {
             dirTable[i] = to_add;
             num_open_dir++;
             return i;
-        }else if(try.vn->inode == to_add.vn->inode)//same instance
+        } else if(try.vn->inode == to_add.vn->inode)//same instance
         {
             return i;
         }
+        try = dirTable[i+1];
+    }
+    //check
+    if (try.vn == NULL)
+    {
+        dirTable[num_open_dir] = to_add;
+        num_open_dir++;
+        return num_open_dir-1;
     }
 
 }
@@ -528,11 +556,13 @@ DirEntry* f_readdir(int dirp)
     for (int i = 0; i < find_entry.where; i++)
     {
         child = child->nextFile;
+        if(child == NULL) {
+            m_error = E_EOF;
+            return NULL;
+        }
     }
     dirTable[dirp].where++;
     return child;
-
-
 }
 
 int f_closedir(int dirp)
@@ -544,6 +574,7 @@ int f_closedir(int dirp)
     }
     dirent to_close = dirTable[dirp];
     to_close.vn = NULL;
+    to_close.where = 0;
     num_open_dir--;
     return 0;
 
