@@ -142,19 +142,23 @@ int f_open(char* path, char* filename, int flag)
             inode* iNode = (inode*)node;
             to_data = disk + data_start + iNode->dblocks[0] * blockSize;
 
-            //find end of siblings
-            DirEntry* traverse = (DirEntry*)to_data;
-            while (traverse->nextFile != NULL)
-            {
-                traverse = traverse->nextFile;
-            }
-
             //make new directory entry for physical system
             DirEntry* to_add = malloc(sizeof(DirEntry));
             strcpy(to_add->fileName, filename);
             to_add->inodeNum = super->free_inode;
             to_add->nextFile = NULL;
-            traverse->nextFile = to_add;
+
+            //find end of siblings and add entry to it
+            DirEntry* traverse = (DirEntry*)to_data;
+            if(traverse != NULL) {
+                while (traverse->nextFile != NULL)
+                {
+                    traverse = traverse->nextFile;
+                }
+                traverse->nextFile = to_add;
+            } else {
+                traverse = to_add;
+            }
 
         }
     }
@@ -570,9 +574,12 @@ int f_closedir(int dirp)
     if (num_open_dir == 0)
     {
         //set m_error to no open files
-        return -1;
+        return FAILURE;
     }
     dirent to_close = dirTable[dirp];
+    /*if(to_close == *NULL) {
+        return FAILURE;
+    }*/
     to_close.vn = NULL;
     to_close.where = 0;
     num_open_dir--;
@@ -607,6 +614,7 @@ int f_mkdir(char* path, char* filename, int mode)
     vnode_t* find_end = dircurrent->child;
     if(find_end == NULL) {
         find_end = new;
+        dircurrent->child = new;
     } else {
         while (find_end->next != NULL)
         {
@@ -621,19 +629,23 @@ int f_mkdir(char* path, char* filename, int mode)
     inode* iNode = (inode*)node;
     void* to_data = disk + data_start + iNode->dblocks[0] * blockSize;
 
-    //find end of siblings
-    DirEntry* traverse = (DirEntry*)to_data;
-    while (traverse->nextFile != NULL)
-    {
-        traverse = traverse->nextFile;
-    }
-
     //make new directory entry for physical system
     DirEntry* to_add = malloc(sizeof(DirEntry));
     strcpy(to_add->fileName, filename);
     to_add->inodeNum = super->free_inode;
     to_add->nextFile = NULL;
-    traverse->nextFile = to_add;
+
+    //find end of siblings and add new entry to it
+    DirEntry* traverse = (DirEntry*)to_data;
+    if(traverse != NULL) {
+        while (traverse->nextFile != NULL)
+        {
+            traverse = traverse->nextFile;
+        }
+        traverse->nextFile = to_add;
+    } else {
+        traverse = to_add;
+    }
 
     //update free inode list
     void* next_free = disk + inode_start + super->free_inode * sizeof(inode);
@@ -641,7 +653,7 @@ int f_mkdir(char* path, char* filename, int mode)
     super->free_inode = next->next_inode;
 
     //assign a block to the new directory
-    void* free_block = disk + data_start + super->free_block * sizeof(inode);//find block
+    void* free_block = disk + data_start + super->free_block * blockSize;//find block
     int ptr = *(int*)free_block;//get ptr to next block
     next->dblocks[0] = super->free_block;//assign block to inode
     super->free_block = ptr;//assign next free block ptr to super->free_block

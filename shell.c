@@ -244,12 +244,12 @@ int dirContains(char *dirPath, char *item) {
   
   int dir = f_opendir(dirPath);
   if(dir == -1) {
-    fprintf(stderr, "ls: error opening directory\n");
+    fprintf(stderr, "error opening directory\n");
     return -1;
   }
 
   if(f_rewinddir(dir) == -1) {
-    fprintf(stderr, "ls: error with directory\n");
+    fprintf(stderr, "error with directory\n");
     return -1;
   }
 
@@ -262,7 +262,7 @@ int dirContains(char *dirPath, char *item) {
     }
   }
 
-  f_closedir(dir);
+  //f_closedir(dir);
 
   return contains;
 }
@@ -303,7 +303,7 @@ void ls(char *pathList, char flags[2]) {
   }
   printf("\n");
 
-  f_closedir(dir);
+  //f_closedir(dir);
   //support '.' and '..'
 }
 
