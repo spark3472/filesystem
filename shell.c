@@ -212,7 +212,7 @@ char** getArgs(int start, int end){
 char **directoryPath;
 
 int pathLength(char *path_split) {
-  int length = 0;
+  int length = 1;
   char *token;
   char *path = malloc(FILELENGTH);
   strcpy(path, path_split);
@@ -231,12 +231,16 @@ char** split(char *path_split, int directory) {
   char *path = malloc(FILELENGTH);
   strcpy(path, path_split);
   int count = 0;
-  printf("Tokens:\n");
+  //printf("Tokens:\n");
+  //add root to the list
   token = strtok(path, "/");
+  splitPath[count] = malloc(FILELENGTH);
+  strcpy(splitPath[count], "/");
+  count++;
   while(token != NULL) {
     splitPath[count] = malloc(FILELENGTH);
     strcpy(splitPath[count], token);
-    printf("%s\n", token);
+    //printf("%s\n", token);
     token = strtok(NULL, "/");
     count++;
   }
@@ -337,8 +341,10 @@ void mkdir(char *fileName) {
   strcpy(path, workingDirectory);
   char **splitPath = split(fileName, TRUE);
 
+  int path_length = pathLength(fileName);
   int entries = 0;
   //printf("Split paths:\n");
+  //maybe edit
   while(splitPath[entries] != NULL) {
     //printf("%s\n", splitPath[entries]);
     entries++;
@@ -346,10 +352,10 @@ void mkdir(char *fileName) {
   //move back to last entry
   entries--;
 
-  printf("successive paths\n");
+  //printf("successive paths\n");
   char *parent = malloc(FILELENGTH);
   for(int i = 0; i <= entries; i++) {
-    printf("%s\n", path);
+    //printf("%s\n", path);
     strcpy(parent, path);
     strcat(path, splitPath[i]);
     int openDir;
@@ -394,8 +400,7 @@ void mkdir(char *fileName) {
     
     strcat(path, "/");
   }
-  int path_length = pathLength(fileName);
-  for(int i = 0; i <= path_length; i++) {
+  for(int i = 0; i < path_length; i++) {
     free(splitPath[i]);
   }
   free(splitPath);
@@ -408,10 +413,57 @@ void rmdir_new(char *fileName) {
 }
 
 void cd(char *filePath) {
-  printf("doing cd - filepath: %s\n", filePath);
-  //open new directory
-    //f_opendir?
-  //
+  char *path = malloc(FILELENGTH);
+  if(filePath[0] == '/') {
+    strcpy(path, filePath);
+  } else {
+    strcpy(path, workingDirectory);
+    if(strcmp(filePath, ".") != 0) {
+      strcat(path, filePath);
+    }
+  }
+
+  printf("doing cd - filepath: %s\n", path);
+
+  int path_length = pathLength(path);
+  char **splitPath = split(path, TRUE);
+  printf("Path length is %d\n", path_length);
+
+  printf("successive paths\n");
+  char *parent = malloc(FILELENGTH);
+  for(int i = 0; i < path_length; i++) {
+    printf("%s\n", path);
+    strcpy(parent, path);
+    strcat(path, splitPath[i]);
+    int openDir;
+    if(dirContains(parent, splitPath[i]) == TRUE) {
+      if(i == path_length) {
+        //desired outcome
+      } else {
+        if((openDir = f_opendir(path)) == -1) {
+          fprintf(stderr, "cd: error opening %s\n", splitPath[i]);
+          return;
+        }
+      }
+
+    } else {
+      fprintf(stderr, "cd: the following directory doesn't exist: %s\n", path);
+      return;
+    }
+    
+    strcat(path, "/");
+  }
+
+  strcpy(workingDirectory, path);
+  strcpy(parentDirectory, parent);
+  printf(". - %s, .. - %s\n", workingDirectory, parentDirectory);
+
+  for(int i = 0; i < path_length; i++) {
+    free(splitPath[i]);
+  }
+  free(splitPath);
+  free(parent);
+  free(path);
   
 }
 
@@ -814,44 +866,23 @@ int main(int argc, char *argv[]){
         }
       }
 
-      if(0 == strcmp(currentArgs[0], "ls")) {
-        char flags[2] = "\0";
-        int argPos = 1;
-        int flagsSeen = 0;
-        char *fileName = malloc(FILELENGTH);
-        strcpy(fileName, ".");
+
+      if(0 == strcmp(currentArgs[0], "cd")) {
+        char *filePath = ".";
         int skip = FALSE;
         
-        //goes through each argument and classifies it as a filename or flag to feed to ls()
-        while(argPos < length) {
-          char *arg = currentArgs[argPos];
-          if(arg[0] == '-') {
-            if((arg[1] != 'l' || arg[1] != 'F') && arg[2] != '\0') {
-              printf("ls: invalid option -- '%s'\n'-l' and '-F' are the only supported flags.\n", arg);
-              skip = TRUE;
-              break;
-            }
-            flags[flagsSeen] = currentArgs[argPos][1];
-            flagsSeen++;
-          } else {
-            if(strcmp(fileName, ".") == 0) {
-              strcpy(fileName, arg);
-            } else {
-              printf("ls only supports listing one directory - please enter %s on a seperate line\n", arg);
-              break;
-            }
-          }
-          argPos++;
+        if(length == 2) {
+          filePath = currentArgs[1];
+        } else if(length > 2) {
+          printf("cd: too many arguments\n");
+          skip = TRUE;
         }
 
         if(skip == FALSE) {
-          ls(fileName, flags);
+          cd(filePath);
         }
-        free(fileName);
       }
 
-
-      
 
       //printf("Parent pgid: %d; ", getpgrp());
       pid_t pid;
@@ -916,10 +947,11 @@ int main(int argc, char *argv[]){
         }
         
         if(0 == strcmp(currentArgs[0], "ls")) {
-          /*char flags[2] = "\0";
+          char flags[2] = "\0";
           int argPos = 1;
           int flagsSeen = 0;
-          char *fileName = ".";
+          char *fileName = malloc(FILELENGTH);
+          strcpy(fileName, ".");
           int skip = FALSE;
           
           //goes through each argument and classifies it as a filename or flag to feed to ls()
@@ -946,7 +978,8 @@ int main(int argc, char *argv[]){
 
           if(skip == FALSE) {
             ls(fileName, flags);
-          }*/
+          }
+          free(fileName);
         } else if(0 == strcmp(currentArgs[0], "chmod")) {
           int skip = FALSE;
           int directory = FALSE;
@@ -998,7 +1031,7 @@ int main(int argc, char *argv[]){
             printf("rmdir: please specify a directory name\n");
           }
         } else if(0 == strcmp(currentArgs[0], "cd")) {
-          char *filePath = NULL;
+          /*char *filePath = NULL;
           int skip = FALSE;
           
           if(length == 2) {
@@ -1010,7 +1043,7 @@ int main(int argc, char *argv[]){
 
           if(skip == FALSE) {
             cd(filePath);
-          }
+          }*/
         } else if(0 == strcmp(currentArgs[0], "pwd")) {        
           if(length > 1) {
             printf("pwd: no arguments supported\n");
