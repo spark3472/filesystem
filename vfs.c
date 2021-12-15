@@ -420,7 +420,7 @@ int f_rewinddir(int dirp)
         return FAILURE;
     }
 
-    dirTable[dirp].where = 0;
+    dirTable[dirp]->where = 0;
 
     return SUCCESS;
 }
@@ -499,42 +499,45 @@ int f_opendir(char *path)
         //set m_error to full
         return FAILURE;
     }
+
+    dirent *to_add = malloc(sizeof(dirent));
+    //to_add->vn = malloc(sizeof(vnode_t));
+    to_add->vn = find(path);
+    to_add->where = 0;
     
-    vnode_t* node = malloc(sizeof(vnode_t));
-    node = find(path);
-    if(node == NULL) {
+    //vnode_t* node = malloc(sizeof(vnode_t));
+    //node = find(path);
+    if(to_add->vn == NULL) {
         m_error = E_FNF;
-        free(node);
+        free(to_add->vn);
+        free(to_add);
         return FAILURE;
     }
-    dirent to_add;
-    to_add.vn = node;
-    to_add.where = 0;
 
     if (num_open_dir == 0)
     {
         dirTable[0] = to_add;
         num_open_dir++;
-        return 0;
+        return SUCCESS;
     }
 
-    dirent try = dirTable[0];
+    dirent *try = dirTable[0];
     for (int i = 0; i < num_open_dir; i++)
     {
-        if (try.vn == NULL)
+        if (try->vn == NULL)
         {
             dirTable[i] = to_add;
             num_open_dir++;
             return i;
-        } else if(try.vn->inode == to_add.vn->inode)//same instance
+        } else if(try->vn->inode == to_add->vn->inode)//same instance
         {
-            free(node);
+            free(to_add);
             return i;
         }
         try = dirTable[i+1];
     }
     //check
-    if (try.vn == NULL)
+    if (try == NULL)
     {
         dirTable[num_open_dir] = to_add;
         num_open_dir++;
@@ -552,16 +555,19 @@ DirEntry* f_readdir(int dirp)
         return NULL;
 
     }
-    dirent find_entry = dirTable[dirp];
-    vnode_t* find_inode = find_entry.vn;
+    dirent *find_entry = dirTable[dirp];
+    vnode_t* find_inode = find_entry->vn;
 
     void* to_inode = disk + inode_start + find_inode->inode * sizeof(inode);
     inode* iNode = (inode*)to_inode;
 
     void* to_data = disk + data_start + iNode->dblocks[0] * blockSize;
     DirEntry* child = (DirEntry*)to_data;
+    if(child->inodeNum == -1) {
+        find_entry->where++;
+    }
 
-    for (int i = 0; i < find_entry.where; i++)
+    for (int i = 0; i < find_entry->where; i++)
     {
         child = child->nextFile;
         if(child == NULL) {
@@ -569,7 +575,7 @@ DirEntry* f_readdir(int dirp)
             return NULL;
         }
     }
-    dirTable[dirp].where++;
+    dirTable[dirp]->where++;
     return child;
 }
 
@@ -580,13 +586,15 @@ int f_closedir(int dirp)
         //set m_error to no open files
         return FAILURE;
     }
-    dirent to_close = dirTable[dirp];
+    dirent *to_close = dirTable[dirp];
     /*if(to_close == *NULL) {
         return FAILURE;
     }*/
-    to_close.vn = NULL;
-    to_close.where = 0;
+    //to_close->vn = NULL;
+    free(to_close);
+    to_close->where = 0;
     num_open_dir--;
+    free(to_close);
     return 0;
 
 }
@@ -596,8 +604,8 @@ int f_closedir(int dirp)
  */
 int f_mkdir(char* path, char* filename, int mode)
 {
-    vnode_t* dircurrent = malloc(sizeof(vnode_t));
-    dircurrent = find(path);
+    //vnode_t* dircurrent = malloc(sizeof(vnode_t));
+    vnode_t* dircurrent = find(path);
 
     if (dircurrent == NULL)
     {
@@ -650,20 +658,27 @@ int f_mkdir(char* path, char* filename, int mode)
         traverse->nextFile = to_add;
     } else {
         traverse = to_add;
+        to_data = to_add;
     }
 
     //update free inode list
     void* next_free = disk + inode_start + super->free_inode * sizeof(inode);
-    inode* next = (inode*)next_free;
-    super->free_inode = next->next_inode;
+    inode* this = (inode*)next_free;
+    super->free_inode = this->next_inode;
+    this->nlink = 1;
+    this->size = 0;
 
     //assign a block to the new directory
     void* free_block = disk + data_start + super->free_block * blockSize;//find block
-    next->dblocks[0] = super->free_block;//assign block to inode
+    this->dblocks[0] = super->free_block;//assign block to inode
     int ptr = *(int*)free_block;//get ptr to next block 
     super->free_block = ptr;//assign next free block ptr to super->free_block
 
-
+    //free_block = NULL;
+    //set it up with a directory structure
+    DirEntry* first_entry = (DirEntry*)(disk + data_start + this->dblocks[0] * blockSize);
+    //first_entry = NULL;
+    first_entry->inodeNum = -1;
 
     //free(dircurrent);
     return 0;
