@@ -172,7 +172,11 @@ int f_open(char* path, char* filename, int flag)
 
             //make it a child of current directory
             find_file = new_file;
-            elder_sibling->next = find_file;
+            if(elder_sibling != NULL) {
+                elder_sibling->next = find_file;
+            } else {
+                vn->child = find_file;
+            }
 
             //could run into errors when directory gets bigger than one block and blocks aren't sequential
             //Find current Directory Entry on physical system
@@ -534,11 +538,22 @@ int f_stat(struct stat_t *buf, int fd)
  
 }
 
-int f_remove(char *path)
+int f_remove(char *path, char *filename)
 {
 
     vnode_t* vn = malloc(sizeof(vnode_t));
     vn = find(path);
+
+    if(vn == NULL) {
+        m_error = E_FNF;
+        return FAILURE;
+    }
+
+    if(vn->type != FILE_TYPE) {
+        m_error = E_BADARGS;
+        return FAILURE;
+    }
+
     
     void* node = disk + inode_start + vn->inode * sizeof(inode);
     if (in_second_disk == 1)
@@ -574,12 +589,16 @@ int f_remove(char *path)
     iNode->next_inode = super->free_inode;
     super->free_inode = vn->inode;
 
-
+    char *end = strrchr(path, '/');
+    end++;
+    int length = strlen(path) - strlen(end);
+    char *newPath = malloc(256);
+    strncpy(newPath, path, length);
+    newPath[length] = '\0';
+    remove_mention_of(newPath, filename);
     
-    
+    return SUCCESS;
 }
-
-
 
 int f_opendir(char *path)
 {
@@ -781,10 +800,83 @@ int f_mkdir(char* path, char* filename, int mode)
     return 0;
 
 }
-int f_rmdir(char* path)
+
+int remove_mention_of(char *path, char *filename) {
+    vnode_t* dircurrent = malloc(sizeof(vnode_t));
+    dircurrent = find(path);
+
+    if(dircurrent == NULL) {
+        m_error = E_FNF;
+        return FAILURE;
+    }
+
+    void* node = disk + inode_start + dircurrent->inode * sizeof(inode);
+    inode* iNode = (inode*)node;
+    void *to_data = disk + data_start + iNode->dblocks[0] * blockSize;
+
+    //find end of siblings and add entry to it
+    DirEntry* traverse = (DirEntry*)to_data;
+    if(traverse != NULL) {
+        if(traverse->nextFile == NULL) {
+            if(strcmp(traverse->fileName, filename) == 0) {
+                free(traverse);
+                traverse = NULL;
+            }
+        } else {
+            while (traverse->nextFile != NULL) {
+                if(strcmp(traverse->nextFile->fileName, filename) == 0) {
+                    DirEntry *temp = traverse->nextFile;
+                    traverse->nextFile = traverse->nextFile->nextFile;
+                    free(temp);
+                    break;
+                }
+                traverse = traverse->nextFile;
+            }
+        }
+    } else {
+        return FAILURE;
+    }
+
+    vnode_t* find_file = dircurrent->child;
+    if(find_file != NULL) {
+        if(find_file->next == NULL) {
+            if(strcmp(find_file->name, filename) == 0) {
+                free(find_file);
+                find_file = NULL;
+            }
+        } else {
+            while (find_file->next != NULL) {
+                if(strcmp(find_file->next->name, filename) == 0) {
+                    vnode_t *temp = find_file->next;
+                    find_file->next = find_file->next->next;
+                    free(temp);
+                    break;
+                }
+                find_file = find_file->next;
+            }
+        }
+    } else {
+        return FAILURE;
+    }
+
+    return SUCCESS;
+}
+
+
+int f_rmdir(char* path, char *filename)
 {
     vnode_t* vn = malloc(sizeof(vnode_t));
     vn = find(path);
+
+    if(vn == NULL) {
+        m_error = E_FNF;
+        return FAILURE;
+    }
+
+    if(vn->type != DIRECTORY_TYPE) {
+        m_error = E_BADARGS;
+        return FAILURE;
+    }
 
     void* node = disk + inode_start + vn->inode * sizeof(inode);
     if(in_second_disk == 1)
@@ -824,8 +916,15 @@ int f_rmdir(char* path)
     iNode->next_inode = super->free_inode;
     super->free_inode = vn->inode;
 
+    char *end = strrchr(path, '/');
+    int length = strlen(path) - strlen(end);
+    char *newPath = malloc(256);
+    strncpy(newPath, path, length);
+    remove_mention_of(newPath, filename);
     
 }
+
+
 int f_mount(char* filename, char* path_to_put)
 {
     FILE* fp;

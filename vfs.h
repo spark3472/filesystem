@@ -125,7 +125,7 @@ int f_rewinddir(int dirp);
 
 int f_stat(struct stat_t *buf, int fd); 
 
-int f_remove(char *path);
+int f_remove(char *path, char *filename);
 
 int f_opendir(char *path);
 
@@ -135,11 +135,13 @@ int f_closedir(int dirp);
 
 int f_mkdir(char* path, char* filename, int mode);
 
-int f_rmdir(char* path);
+int f_rmdir(char* path, char *filename);
 
 int f_mount(char* filename, char* path_to_put);
 
 int f_unmount(const char *dir, int flags);
+
+int remove_mention_of(char *path, char *filename);
 
 
 
