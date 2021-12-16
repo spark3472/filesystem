@@ -62,7 +62,7 @@ make a new directory at the specified location
 <h5>f_rmdir</h5>
 delete a specified directory. Be sure to remove entire contents and the contents of all subdirectories from the filesystem. Do NOT simply remove pointers to directory.
 <h5>f_mount</h5>
-mount a specified file system into your directory tree at a specified location.
+mount a specified file system into your directory tree at a specified location. (cannot mount more than one disk)
 <h5>f_umount</h5>
 unmount a specified file system
  
