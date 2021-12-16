@@ -4,8 +4,7 @@
 
 #define MAX_FT_SIZE 10000
 
-extern int m_error;
-enum errors{E_BADARGS, E_EOF, E_FNF, E_DNF, FT_FULL, E_FLAG, E_DISK, E_CHMOD};
+
 
 #define FAILURE -1
 #define SUCCESS 0

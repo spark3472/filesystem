@@ -47,10 +47,27 @@ int main()
 
     void* ptr = malloc(4);
     size_t read = f_read(ptr, 1, 4, fd);
-    if (m_error = E_CHMOD)
+    if (read == -1)
     {
         printf("E_CHMOD, user does not have permission to read from file\n");
     }
+   
 
-    free(ptr);
+    change = change_chmod("/letters.txt", 500);
+    if (change == -1)
+    {
+        fprintf(stderr, "did not change chmod\n");
+        exit(EXIT_FAILURE);
+    }else{
+        printf("changed chmod!\n");
+    }
+
+    size_t write = f_write(ptr, 1, 4, fd);
+    if (write == -1)
+    {
+        printf("E_CHMOD, user does not have permission to write to file\n");
+    }
+
+     free(ptr);
+
 }

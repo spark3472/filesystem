@@ -8,8 +8,9 @@
 #include <signal.h>
 #include <math.h>
 
-extern int m_error;
+int m_error;
 enum errors{E_BADARGS, E_EOF, E_FNF, E_DNF, FT_FULL, E_FLAG, E_DISK, E_CHMOD};
+
 //make tree root global in shell
 vnode_t *root;
 int num_open_files = 0;
@@ -51,10 +52,7 @@ vnode_t* find(char* path)
         const char delim[2] = "/";
 
         char* ptr = strtok(to_seperate, delim);
-        if (second_disk != NULL && strcmp(ptr, name_second_disk) == 0)
-        {
-            in_second_disk = 1;
-        }
+        
         for (traverse = root->child; traverse != NULL; traverse = traverse->next)
         {
             if (strcmp (traverse->name, ptr) == 0)
