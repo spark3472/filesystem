@@ -109,5 +109,5 @@ Chmod is absolute only.
 Creation of directories and files is buggy (see above)
 
 
-<h2>Testing<h2>
+<h2>Testing</h2>
 To test, we created a few test programs for the file system (submitted with them). We also used the main function in the vfs.c to test each feature as it was created. For the shell, we used a variety of calls, like the set of ones given in the slack, in various combos to see if any recent changes affected the functionality of a previous feature.
