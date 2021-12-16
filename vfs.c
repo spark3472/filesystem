@@ -28,6 +28,7 @@ char* name_second_disk;
 
 int is_super = 1;
 
+
 //create signal handle/register to clean up fp and buffer upon user ending program?
 void sighandler(int signo)
 {
@@ -202,14 +203,14 @@ int f_open(char* path, char* filename, int flag)
 
             //find end of siblings and add entry to it
             DirEntry* traverse = (DirEntry*)to_data;
-            if(traverse != NULL) {
-                while (traverse->nextFile != NULL)
+            if(traverse == NULL || strcmp(traverse->fileName, "\0") == 0) {
+                traverse = to_add;
+            } else {
+                while (traverse->nextFile != NULL && strcmp(traverse->nextFile->fileName, traverse->fileName) != 0)
                 {
-                    traverse = traverse->nextFile;
+                    traverse = (DirEntry*)(traverse->nextFile);
                 }
                 traverse->nextFile = to_add;
-            } else {
-                traverse = to_add;
             }
 
         }
@@ -735,16 +736,21 @@ DirEntry* f_readdir(int dirp)
     if(child->inodeNum == -1) {
         find_entry->where++;
     }
-
+    char *previousName = malloc(256);
     for (int i = 0; i < find_entry->where; i++)
     {
-        child = child->nextFile;
+        child = (DirEntry*)(child->nextFile);
         if(child == NULL) {
+            m_error = E_EOF;
+            return NULL;
+        }
+        if(strcmp(child->fileName, "\0") == 0) {
             m_error = E_EOF;
             return NULL;
         }
     }
     dirTable[dirp]->where++;
+    free(previousName);
     return child;
 }
 
@@ -1049,6 +1055,7 @@ int f_mount(char* filename, char* path_to_put)
         firstDisk = fp;
         root = malloc(sizeof(vnode_t));
         strcpy(root->name, "/"); 
+        int entries = 0;
         DirEntry* dir = (DirEntry*)rootData;
         root->inode = 0;
         root->disk = 0;
@@ -1060,14 +1067,22 @@ int f_mount(char* filename, char* path_to_put)
         vnode_t* temp = root->child;
         temp->disk = 0;
         temp->chmod = 777;
-        for (dir = dir->nextFile; dir != NULL; dir = dir->nextFile)
+        entries++;
+        DirEntry *elderSibling = dir;
+        for (dir = (DirEntry*)(rootData + entries*sizeof(DirEntry)); dir != NULL; dir = (DirEntry*)(rootData + entries*sizeof(DirEntry)))
         {
+            if (strcmp(dir->fileName, "\0") == 0) {
+                break;
+            }
+            elderSibling->nextFile = dir;
             temp->next = malloc(sizeof(vnode_t));
             temp = temp->next;
             temp->disk = 0;
             temp->chmod = 777;
             strcpy(temp->name, dir->fileName);
             temp->inode = dir->inodeNum;
+            entries++;
+            elderSibling = dir;
         }
     }else{
         vnode_t* to_put = find(path_to_put);

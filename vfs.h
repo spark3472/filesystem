@@ -21,6 +21,13 @@
 
 enum {OREAD, ORDWR, OWRITE, OCREAT, OAPPEND, ORDAD};
 
+//USERS
+char *superuser = "bmcadmin";
+char *superpwd = "bmcadmin";
+
+char *regularuser = "bmcguest";
+char *regularpwd = "bmcguest";
+
 //stat struct taken from man fstat()
 struct stat_t {
     int inode;
