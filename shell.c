@@ -402,10 +402,6 @@ void mkdir(char *fileName) {
   free(path);
 }
 
-void rmdir_new(char *fileName) {
-  printf("doing rmdir - filename: %s\n", fileName);
-}
-
 void cd(char *filePath) {
   char *path = malloc(FILELENGTH);
   if(filePath[0] == '/') {
@@ -774,6 +770,11 @@ void rm(char *fileName, int directory) {
   free(path);
 }
 
+void rmdir_new(char *fileName) {
+  printf("doing rmdir - filename: %s\n", fileName);
+  rm(fileName, TRUE);
+}
+
 void mount(char *fileSys, char *location) {
   printf("doing mount - needs to be motified\n");
   //grafting disk onto a point in existing file tree
@@ -1058,17 +1059,20 @@ int main(int argc, char *argv[]){
         }
       }
 
-      if(0 == strcmp(currentArgs[0], "cat")) {
-          if(strcmp(redirection, "in") != 0) {
-            if(length == 1) {
-              printf("cat: please enter file(s) to see\n");
-            } else {
-              cat(currentArgs+1, length - 1);
-            }
-          } else {
-            cat(&fileRedirect, 1);
+      if(0 == strcmp(currentArgs[0], "rmdir")) {
+          int argPos = 1;
+          //removes the directory with each given name
+          while(argPos < length) {
+            char *arg = currentArgs[argPos];
+            rm(arg, TRUE);
+            argPos++;
+          }
+          //checks if no directory name was given
+          if(length == 1) {
+            printf("rmdir: please specify a directory name\n");
           }
         }
+
 
       //printf("Parent pgid: %d; ", getpgrp());
       pid_t pid;
@@ -1205,7 +1209,7 @@ int main(int argc, char *argv[]){
             printf("mkdir: please specify a directory name\n");
           }*/
         } else if(0 == strcmp(currentArgs[0], "rmdir")) {
-          int argPos = 1;
+          /*int argPos = 1;
           //removes the directory with each given name
           while(argPos < length) {
             char *arg = currentArgs[argPos];
@@ -1215,7 +1219,7 @@ int main(int argc, char *argv[]){
           //checks if no directory name was given
           if(length == 1) {
             printf("rmdir: please specify a directory name\n");
-          }
+          }*/
         } else if(0 == strcmp(currentArgs[0], "cd")) {
           /*char *filePath = "/";
           int skip = FALSE;
@@ -1236,7 +1240,7 @@ int main(int argc, char *argv[]){
           }
           pwd();
         } else if(0 == strcmp(currentArgs[0], "cat")) {
-          /*if(strcmp(redirection, "in") != 0) {
+          if(strcmp(redirection, "in") != 0) {
             if(length == 1) {
               printf("cat: please enter file(s) to see\n");
             } else {
@@ -1244,7 +1248,7 @@ int main(int argc, char *argv[]){
             }
           } else {
             cat(&fileRedirect, 1);
-          }*/
+          }
         } else if(0 == strcmp(currentArgs[0], "more")) {
           if(strcmp(redirection, "in") != 0) {
             if(length == 1) {
