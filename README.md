@@ -7,10 +7,13 @@ CS355 Final Project HW7
 Library: <br >
 make <br  >
 
-<h2>Introduction</h2>
+<h2> Overview of File System </h2>
+
+Our file system is very similar to the Linux inode structure from HW6. We have an inode region where each inode points to its data blocks using direct and indirect blocks. The data region is directly after the inode region. The root directory is inode 0. The data blocks of directories hold a linked list of directory entries for everything inside of it, which includes the children’s name, inode number, and pointer to its next sibling. Above the physical file system, we use vnodes to track the open file and directory trees. The vnode holds a link to “next”, its next sibling, and “child”, its first child entry. It also holds the name, inode number, chmod and read/write permissions, and type (file/directory/etc). The file/directory trees are structured as linked lists of file entries and directories entries, each of which hold a vnode and an indicator for offset within the file/directory. When a file/directory is made, it is added as a child on the vnode and as an entry on the tree. When a file/directory is removed, it is removed as a child on the vnode and as an entry on the tree. When a file/directory is closed, it is only removed as an entry on the tree. When a file/directory is opened, it is added as an entry on the tree.
+
+The list of free inodes is a linked list with each free inode pointing to the next one. The list of free blocks is the same, with the pointer to the next one in the first four bytes of the data. Freed inodes and blocks are added to the head of the linked list.
 
 
-<h2> Virtual File System </h2>
 <h3>Data Structures</h3>
 arrays: to keep track of the file table and the directory table <br >
 vnode: linked list where it stores it's children but also a sibling <br >
