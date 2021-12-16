@@ -6,6 +6,7 @@ CS355 Final Project HW7
 <h2>To Compile and Run</h2>
 Library: <br >
 make <br  >
+make setup1 for users or make setup for no users
 
 <h2> Overview of File System </h2>
 
@@ -21,8 +22,6 @@ Testing for:
     - file to mount doesn't exist
     - file to open doesn't exist
     - file to read doesn't exist
-
-<h2> Shell </h2>
 
 
 <h2> Disk Format </h2>
@@ -70,13 +69,10 @@ mount a specified file system into your directory tree at a specified location. 
 unmount a specified file system
  
 <h4>Shell</h4>
-<h5>redirection</h5>
-<h5>ls</h5>
-<h5>mkdir</h5>
-
 <h5>cd</h5>
 Moves up/down the directory tree, supports . and ..
 <h5>pwd</h5>
+Yes
 <h5>cat</h5>
 Prints the contents of a file
 <h5>more</h5>
@@ -91,18 +87,27 @@ change_chmod() in vfs.c changes the permissions for a file or directory, but not
 Removes a file or directory (with -r flag) - buggy, especially with removing directories. Sometimes it doesn't remove the directory, or also removes everything in the parent directory
 <h5>rmdir</h5>
 Removes a directory (calls rm with -r)
+<h5>redirection</h5>
+Sometimes the file isn't created, specifically in sub-directories or if there are directories first as children
+<h5>mkdir</h5>
+Sometimes the directory isn't created, or creates infinite sub-directories of itself
+<h5>ls</h5>
+No flags supported
 
 
 
 
 <h3>Not Implemented</h3>
 <h5>ls with flags</h5>
-<h5>mount</h5>
-<h5>unmount</h5>
+<h5>mount in shell</h5>
+<h5>unmount in shell</h5>
 <h5>symbolic chmod</h5>
 
 <h3>Known Bugs and Limitations</h3>
-Only pressing enter on the shell will cause a memory error.
 Does not support indirect blocks.
 Chmod is absolute only.
+Creation of directories and files is buggy (see above)
 
+
+<h2>Testing<h2>
+To test, we created a few test programs for the file system (submitted with them). We also used the main function in the vfs.c to test each feature as it was created. For the shell, we used a variety of calls, like the set of ones given in the slack, in various combos to see if any recent changes affected the functionality of a previous feature.

@@ -1,8 +1,12 @@
-all: library shell format sampleDisk
+all: library shell format sampleDisk sampleDisk_users
 
 setup:
 	./format DISK 
 	./sampleDisk
+
+setup2:
+	./format DISK 
+	./sampleDisk_users
 
 library: vfs.c vfs.h
 	gcc -g -fpic -c vfs.c -lm
