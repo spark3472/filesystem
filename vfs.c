@@ -49,7 +49,7 @@ vnode_t* find(char* path)
         const char delim[2] = "/";
 
         char* ptr = strtok(to_seperate, delim);
-        if (strcmp(ptr, name_second_disk) == 0)
+        if (second_disk != NULL && strcmp(ptr, name_second_disk) == 0)
         {
             in_second_disk = 1;
         }
@@ -318,7 +318,7 @@ size_t f_write(void *data, size_t size, int num, int fd)
         return FAILURE;
     }
     
-    if(to_write.flag == OREAD || to_write.flag == OWRITE)
+    if(to_write.flag == OREAD)
     {
         m_error = E_FLAG;
         return FAILURE;
