@@ -9,16 +9,21 @@
 #include <math.h>
 
 int m_error;
-enum errors{E_BADARGS, E_EOF, E_FNF, E_DNF, FT_FULL};
+enum errors{E_BADARGS, E_EOF, E_FNF, E_DNF, FT_FULL, E_FLAG, E_DISK};
 //make tree root global in shell
 vnode_t *root;
 int num_open_files = 0;
 int num_open_dir = 0;
 int blockSize;
 int data_start;
+
 int inode_start;
 FILE* firstDisk;
 void* disk;
+void* second_disk;
+int in_second_disk = 0;
+char* name_second_disk;
+
 //create signal handle/register to clean up fp and buffer upon user ending program?
 void sighandler(int signo)
 {
@@ -28,6 +33,7 @@ void sighandler(int signo)
 }
 vnode_t* find(char* path)
 {
+    in_second_disk = 0;
     vnode_t* traverse = root;
 
     if(root == NULL) {
@@ -43,13 +49,27 @@ vnode_t* find(char* path)
         const char delim[2] = "/";
 
         char* ptr = strtok(to_seperate, delim);
+        if (strcmp(ptr, name_second_disk) == 0)
+        {
+            in_second_disk = 1;
+        }
         for (traverse = root->child; traverse != NULL; traverse = traverse->next)
         {
             if (strcmp (traverse->name, ptr) == 0)
             {
                 ptr = strtok(NULL, delim);
+                if (traverse->disk == 1)
+                {
+                    in_second_disk = 1;
+                }
                 if (ptr == NULL)
                 {
+                    if (in_second_disk == 1)
+                    {
+                        traverse->disk = 1;
+                    }else{
+                        traverse->disk = 0;
+                    }
                     return traverse;
                 }else
                 {
@@ -65,11 +85,20 @@ vnode_t* find(char* path)
                 {
                     if (strcmp(traverse->name, ptr) == 0)
                     {
-                        //printf("%d\n", traverse->inode);
+                        if (in_second_disk == 1)
+                        {
+                            traverse->disk = 1;
+                        }else{
+                            traverse->disk = 0;
+                        }
                         return traverse;
                     }
                 }
                 ptr = strtok(NULL, delim);
+                if (strcmp(ptr, name_second_disk) == 0)
+                {
+                    in_second_disk = 1;
+                }
             } else {
                 return NULL;
             }
@@ -104,6 +133,16 @@ int f_open(char* path, char* filename, int flag)
         find_file = find_file->next;
     }
 
+    void* choose_disk;
+
+    if(in_second_disk == 1)
+    {
+        choose_disk = second_disk;
+    }else
+    {
+        choose_disk = disk;
+    }
+
     if (find_file == NULL)
     {
         if (flag == OREAD || flag == ORDWR)//FNF error
@@ -112,6 +151,7 @@ int f_open(char* path, char* filename, int flag)
             return -1;
         }else //create file
         {
+
             vnode_t* new_file = malloc(sizeof(vnode_t));
             superblock* super = (superblock*)(disk+512);
             new_file->child = NULL;
@@ -122,14 +162,14 @@ int f_open(char* path, char* filename, int flag)
             new_file->inode = super->free_inode; //assign inode for file
 
             //assign free block to inode
-            void* to_inode = disk + inode_start + super->free_inode * sizeof(inode);
+            void* to_inode = choose_disk + inode_start + super->free_inode * sizeof(inode);
             inode* node = (inode*)to_inode;
             node->size = 0;
             node->dblocks[0] = super->free_block;
 
             //update free lists
             super->free_inode = node->next_inode;
-            void* to_data = disk + data_start + super->free_block * blockSize;
+            void* to_data = choose_disk + data_start + super->free_block * blockSize;
             int ptr = *(int*)to_data;
             super->free_block = ptr;
 
@@ -139,9 +179,9 @@ int f_open(char* path, char* filename, int flag)
 
             //could run into errors when directory gets bigger than one block and blocks aren't sequential
             //Find current Directory Entry on physical system
-            node = disk + inode_start + vn->inode * sizeof(inode);
+            node = choose_disk + inode_start + vn->inode * sizeof(inode);
             inode* iNode = (inode*)node;
-            to_data = disk + data_start + iNode->dblocks[0] * blockSize;
+            to_data = choose_disk + data_start + iNode->dblocks[0] * blockSize;
 
             //find end of siblings
             DirEntry* traverse = (DirEntry*)to_data;
@@ -160,7 +200,7 @@ int f_open(char* path, char* filename, int flag)
         }
     }
 
-    void* to_inode = disk + inode_start + find_file->inode * sizeof(inode);
+    void* to_inode = choose_disk + inode_start + find_file->inode * sizeof(inode);
     inode* find_size = (inode*)to_inode;
    
     
@@ -196,6 +236,9 @@ int f_open(char* path, char* filename, int flag)
 
 size_t f_read(void *ptr, size_t size, int num, int fd)
 {
+
+
+
     size_t data_to_read = size * num;
     fileEntry to_read = fileTable[fd];
     size_t readSize = size;
@@ -205,13 +248,25 @@ size_t f_read(void *ptr, size_t size, int num, int fd)
         //fprintf(stderr, "f_read: no file found\n");
         return FAILURE;
     }
-    
-    void* node = disk;
+    void* node;
+    if (to_read.vn->disk == 1)
+    {
+        node = second_disk;
+    }else{
+        node = disk;
+    }
+
     node += inode_start + fileTable[fd].vn->inode * sizeof(inode);
     inode* iNode = (inode*)node;
 
     //ahh what if offset is bigger than blocksize......... update
-    node = disk + data_start + iNode->dblocks[0] * blockSize + to_read.offset;
+
+    if (to_read.vn->disk == 1)
+    {
+        node = second_disk + data_start + iNode->dblocks[0] * blockSize + to_read.offset;
+    }else{
+        node = disk + data_start + iNode->dblocks[0] * blockSize + to_read.offset;
+    }
     
     //printf("\noffset: %d, size: %d; to read: %ld * %d\n", to_read.offset, iNode->size, size, num);
     if(to_read.offset >= iNode->size) {
@@ -244,6 +299,8 @@ size_t f_write(void *data, size_t size, int num, int fd)
     size_t writeSize = size;
     int writeNum = num;
 
+    
+
     superblock *super = (superblock*)(disk + 512);
 
     //file doesn't exist
@@ -252,10 +309,24 @@ size_t f_write(void *data, size_t size, int num, int fd)
         fprintf(stderr, "f_write: no file found\n");
         return FAILURE;
     }
+    
+    if(to_write.flag == OREAD || to_write.flag == OWRITE)
+    {
+        m_error = E_FLAG;
+        return FAILURE;
+    }
 
     //MODIFY make error if no free space left on disk and trying to write over file size
-    
-    void* node = (disk + inode_start + fileTable[fd].vn->inode*sizeof(inode));
+    void* node;
+    void* choose_disk;
+    if (to_write.vn->disk == 1)
+    {   
+        choose_disk = second_disk;
+        node = second_disk + inode_start + fileTable[fd].vn->inode*sizeof(inode);
+    }else{
+        choose_disk = disk;
+        node = disk + inode_start + fileTable[fd].vn->inode*sizeof(inode);
+    }
     inode* iNode = (inode*)node;
 
     int currentBlocksUsed = (int)ceil((double)(iNode->size)/blockSize);
@@ -280,7 +351,7 @@ size_t f_write(void *data, size_t size, int num, int fd)
         while(totalBlocksNeeded - currentBlocksUsed > 0) {
             if(currentBlocksUsed < N_DBLOCKS) {
                 iNode->dblocks[currentBlocksUsed] = super->free_block;
-                super->free_block = *(int*)(disk + data_start + super->free_block*blockSize);
+                super->free_block = *(int*)(choose_disk + data_start + super->free_block*blockSize);
             } else {
                 int iblockNum = (currentBlocksUsed - N_DBLOCKS)/(blockSize/sizeof(int));
                 int offsetInBlock = (currentBlocksUsed - N_DBLOCKS) % (blockSize/sizeof(int));
@@ -288,11 +359,11 @@ size_t f_write(void *data, size_t size, int num, int fd)
                 if(offsetInBlock == 0) {
                     //allocate indirect block
                     iNode->iblocks[iblockNum] = super->free_block;
-                    super->free_block = *(int*)(disk + data_start + super->free_block*blockSize);
+                    super->free_block = *(int*)(choose_disk + data_start + super->free_block*blockSize);
                 }
-                int* newDataLoc = (int*)(disk + data_start + iNode->iblocks[iblockNum]*blockSize + offsetInBlock*sizeof(int));
+                int* newDataLoc = (int*)(choose_disk + data_start + iNode->iblocks[iblockNum]*blockSize + offsetInBlock*sizeof(int));
                 *newDataLoc = super->free_block;
-                super->free_block = *(int*)(disk + data_start + super->free_block*blockSize);
+                super->free_block = *(int*)(choose_disk + data_start + super->free_block*blockSize);
             }
             currentBlocksUsed++;
         }
@@ -314,10 +385,10 @@ size_t f_write(void *data, size_t size, int num, int fd)
     } else {
         int iblockNum = (currentBlocksUsed - N_DBLOCKS)/(blockSize/sizeof(int));
         int offsetInBlock = (currentBlocksUsed - N_DBLOCKS) % (blockSize/sizeof(int));
-        dataBlockOffset = *(int*)(disk + data_start + iNode->iblocks[iblockNum]*blockSize + offsetInBlock*sizeof(int));
+        dataBlockOffset = *(int*)(choose_disk + data_start + iNode->iblocks[iblockNum]*blockSize + offsetInBlock*sizeof(int));
     }
 
-    node = disk + data_start + dataBlockOffset*blockSize + inBlockOffset;
+    node = choose_disk + data_start + dataBlockOffset*blockSize + inBlockOffset;
 
     //adjust inode size (consider if overwriting existing memory)
     if(bigger == TRUE) {
@@ -353,7 +424,16 @@ int f_seek(int offset, int whence, int fd)
     }
 
     fileEntry to_seek = fileTable[fd];
-    void* node = disk;
+
+
+    void* node;
+    if(to_seek.vn->disk == 1)
+    {
+        node = second_disk;
+    }else
+    {
+        node = disk;
+    }
     node += inode_start + to_seek.vn->inode * sizeof(inode);
     inode* iNode = (inode*)node;
     
@@ -434,6 +514,10 @@ int f_stat(struct stat_t *buf, int fd)
     buf->inode = to_stat.vn->inode;
 
     void* node = disk;
+    if (to_stat.vn->disk == 1)
+    {
+        node = second_disk;
+    }
     node += inode_start + fileTable[fd].vn->inode * sizeof(inode);
     inode* iNode = (inode*)node;
 
@@ -454,8 +538,12 @@ int f_remove(char *path)
 
     vnode_t* vn = malloc(sizeof(vnode_t));
     vn = find(path);
-
+    
     void* node = disk + inode_start + vn->inode * sizeof(inode);
+    if (in_second_disk == 1)
+    {
+        node =  second_disk + inode_start + vn->inode * sizeof(inode);
+    }
     inode* iNode = (inode*)node;
     int num_blocks_to_free = iNode->size/blockSize;
     int num_direct_blocks = 0;
@@ -472,6 +560,10 @@ int f_remove(char *path)
     for (int i = 0; i < num_blocks_to_free; i++)
     {
         void* datablock = disk + data_start + iNode->dblocks[i] * blockSize;
+        if(in_second_disk == 1)
+        {
+            datablock = second_disk + data_start + iNode->dblocks[i] * blockSize;
+        }
         
         *(int*)datablock = super->free_block;
 
@@ -596,7 +688,15 @@ int f_mkdir(char* path, char* filename, int mode)
         //set m_error to directory not found
         return -1;
     }
-    superblock *super = (superblock*)(disk + 512);
+
+    void* choose_disk;
+    if (dircurrent->disk == 1)
+    {
+        choose_disk = second_disk;
+    }else{
+        choose_disk = disk;
+    }
+    superblock *super = (superblock*)(choose_disk + 512);
 
     //make new vnode
     vnode_t* new = malloc(sizeof(vnode_t));
@@ -620,9 +720,9 @@ int f_mkdir(char* path, char* filename, int mode)
     }
 
     //Find current Directory Entry on physical system
-    void* node = disk + inode_start + dircurrent->inode * sizeof(inode);
+    void* node = choose_disk + inode_start + dircurrent->inode * sizeof(inode);
     inode* iNode = (inode*)node;
-    void* to_data = disk + data_start + iNode->dblocks[0] * blockSize;
+    void* to_data = choose_disk + data_start + iNode->dblocks[0] * blockSize;
 
     //find end of siblings
     DirEntry* traverse = (DirEntry*)to_data;
@@ -639,12 +739,12 @@ int f_mkdir(char* path, char* filename, int mode)
     traverse->nextFile = to_add;
 
     //update free inode list
-    void* next_free = disk + inode_start + super->free_inode * sizeof(inode);
+    void* next_free = choose_disk + inode_start + super->free_inode * sizeof(inode);
     inode* next = (inode*)next_free;
     super->free_inode = next->next_inode;
 
     //assign a block to the new directory
-    void* free_block = disk + data_start + super->free_block * blockSize;//find block
+    void* free_block = choose_disk + data_start + super->free_block * blockSize;//find block
     next->dblocks[0] = super->free_block;//assign block to inode
     int ptr = *(int*)free_block;//get ptr to next block 
     super->free_block = ptr;//assign next free block ptr to super->free_block
@@ -661,6 +761,19 @@ int f_rmdir(char* path)
     vn = find(path);
 
     void* node = disk + inode_start + vn->inode * sizeof(inode);
+    if(in_second_disk == 1)
+    {
+        node = second_disk + inode_start + vn->inode * sizeof(inode);
+    }
+
+    void* choose_disk;
+    if (in_second_disk  == 1)
+    {
+        choose_disk = second_disk;
+    }else{
+        choose_disk = disk;
+    }
+
     inode* iNode = (inode*)node;
     int num_blocks_to_free = iNode->size/blockSize;
     int num_direct_blocks = 0;
@@ -672,10 +785,10 @@ int f_rmdir(char* path)
     {
         num_direct_blocks = num_blocks_to_free;
     }
-    superblock* super = (superblock*)(disk+512);
+    superblock* super = (superblock*)(choose_disk+512);
     for (int i = 0; i < num_blocks_to_free; i++)
     {
-        void* datablock = disk + data_start + iNode->dblocks[i] * blockSize;
+        void* datablock = choose_disk + data_start + iNode->dblocks[i] * blockSize;
         
         *(int*)datablock = super->free_block;
 
@@ -689,21 +802,39 @@ int f_rmdir(char* path)
 }
 int f_mount(char* filename, char* path_to_put)
 {
-    FILE *fp = fopen(filename, "r+");
-    if (fp == NULL)
+    FILE* fp;
+      
+    if (disk != NULL)
     {
-        return -1;
-    }
-    //get size of disk
-    fseek(fp, 0L, SEEK_END);
-    long size = ftell(fp);
-    rewind(fp);
+        FILE* gp = fopen(filename, "r+");
+        if (gp == NULL)
+        {
+            m_error = E_DISK;
+            return -1;
+        }
+        fseek(gp, 0L, SEEK_END);
+        long size = ftell(gp);
+        rewind(gp);
+        second_disk = malloc(size);
+        fread(second_disk, 1, size, gp);
 
-    //read into buffer
-    disk = malloc(size);
-    fread(disk, 1, size, fp);
-    //rewind(fp);
-    //fclose(fp);
+    }else
+    {
+        fp = fopen(filename, "r+");
+        if (fp == NULL)
+        {
+        return -1;
+        }
+        //get size of disk
+        fseek(fp, 0L, SEEK_END);
+        long size = ftell(fp);
+        rewind(fp);
+        
+        //read into buffer
+        disk = malloc(size);
+        fread(disk, 1, size, fp);
+    
+    }
 
     //info from superblock
     superblock *super = (superblock*)(disk + 512);
@@ -719,27 +850,55 @@ int f_mount(char* filename, char* path_to_put)
     inode* node = (inode*)ptr;
 
     void *rootData = disk + data_start + (node->dblocks[0] * blockSize);
-    if(strcmp(path_to_put, "/") == 0) {
+    if(strcmp(path_to_put, "/") == 0 && second_disk == NULL) {
         //make vnode for root
         firstDisk = fp;
         root = malloc(sizeof(vnode_t));
         strcpy(root->name, "/"); 
         DirEntry* dir = (DirEntry*)rootData;
         root->inode = 0;
+        root->disk = 0;
         root->child = malloc(sizeof(vnode_t));
         strcpy(root->child->name, dir->fileName);
         root->child->inode = dir->inodeNum;
 
         vnode_t* temp = root->child;
+        temp->disk = 0;
         for (dir = dir->nextFile; dir != NULL; dir = dir->nextFile)
         {
             temp->next = malloc(sizeof(vnode_t));
             temp = temp->next;
+            temp->disk = 0;
             strcpy(temp->name, dir->fileName);
             temp->inode = dir->inodeNum;
         }
     }else{
         vnode_t* to_put = find(path_to_put);
+        vnode_t* last_child = to_put->child;
+
+        while(last_child != NULL)
+        {
+            last_child = last_child->next;
+        }
+        void* ptr = second_disk;
+        ptr += 1024 + inode_offset * blockSize;
+        inode* node = (inode*)ptr;
+        void* data = second_disk + data_start + (node->dblocks[0]*blockSize);
+        
+        DirEntry* dir = (DirEntry*)data;
+        last_child = malloc(sizeof(vnode_t));
+        strcpy(last_child->name, dir->fileName);
+        name_second_disk = dir->fileName;
+        last_child->inode = dir->inodeNum;
+        last_child->disk = 1;
+        for (dir = dir->nextFile; dir != NULL; dir = dir->nextFile)
+        {
+            last_child->next = malloc(sizeof(vnode_t));
+            last_child = last_child->next;
+            last_child->disk = 1;
+            strcpy(last_child->name, dir->fileName);
+            last_child->inode = dir->inodeNum;
+        }
         //mount at path_to_put
     }
 
@@ -773,6 +932,7 @@ int main(){
         fprintf(stderr, "Error mounting\n");
         exit(0);
     }
+
     //printf("Mount %d\n",f_mount("./DISK", "/"));
     /*int dirp = f_opendir("/");
     DirEntry* find = malloc(sizeof(DirEntry));
@@ -850,5 +1010,7 @@ int main(){
 
 
     f_unmount("/", 0);
+
+    free(second_disk);
 
 }
