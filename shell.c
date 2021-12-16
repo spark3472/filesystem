@@ -703,7 +703,7 @@ void more(char **files, int num) {
 }
 
 void rm(char *fileName, int directory) {
-  printf("doing rm - filename: %s\n", fileName);
+  //printf("doing rm - filename: %s\n", fileName);
   //printf("doing mkdir - filename: %s\n", fileName);
   //check if directory already exists
   //deal with permissions later
@@ -727,10 +727,10 @@ void rm(char *fileName, int directory) {
     entries = 1;
   }
 
-  printf("successive paths\n");
+  //printf("successive paths\n");
   char *parent = malloc(FILELENGTH);
   for(int i = 0; i < entries; i++) {
-    printf("%s\n", path);
+    //printf("%s\n", path);
     strcpy(parent, path);
     strcat(path, splitPath[i]);
     int openDir;
