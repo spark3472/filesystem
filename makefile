@@ -19,6 +19,9 @@ format: format.c
 
 sampleDisk: sampleDisk.c 
 	gcc -g -o sampleDisk sampleDisk.c
+
+sampleDisk_users: sampleDisk_users.c 
+	gcc -g -o sampleDisk_users sampleDisk_users.c
 	
 vfs: vfs.c vfs.h
 	gcc -g -o vfs vfs.c -lm
