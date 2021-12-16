@@ -225,6 +225,23 @@ int pathLength(char *path_split) {
   return length;
 }
 
+int pathLength2(char *path_split) {
+  int length = 0;
+  if(path_split[0] == '/') {
+    length++;
+  }
+  char *token;
+  char *path = malloc(FILELENGTH);
+  strcpy(path, path_split);
+  token = strtok(path, "/");
+  while(token != NULL) {
+    token = strtok(NULL, "/");
+    length++;
+  }
+  free(path);
+  return length;
+}
+
 char** split(char *path_split, int directory) {
   char **splitPath = malloc(sizeof(char*) * PATHLENGTH);
   char *token;
@@ -248,17 +265,6 @@ char** split(char *path_split, int directory) {
   }
   free(path);
   return splitPath;
-}
-
-/* Gets the absolute path of a file
- * 
- */
-char* getAbsPath(char *path, int directory) {
-  //MODIFY free this
-  split(path, directory);
-  char *absPath = malloc(FILELENGTH);
-  strcpy(absPath, workingDirectory);
-  return strcat(absPath, path);
 }
 
 int dirContains(char *dirPath, char *item) {
@@ -335,10 +341,6 @@ void chmod(char *fileName, char *permisisons, int directory) {
 }
 
 void mkdir(char *fileName) {
-  //printf("doing mkdir - filename: %s\n", fileName);
-  //check if directory already exists
-  //deal with permissions later
-  //deal with .. later
   char *path = malloc(FILELENGTH);
   strcpy(path, workingDirectory);
   char **splitPath = split(fileName, TRUE);
@@ -485,6 +487,60 @@ void pwd() {
 //works with small file - test with bigger file when have one
 void cat(char **files, int num) {
   int file;
+  for(int j = 0; j < num; j++) {
+    char *path = malloc(FILELENGTH);
+    strcpy(path, workingDirectory);
+    char **splitPath = split(files[j], FALSE);
+
+    int path_length = pathLength2(files[j]);
+
+    printf("successive paths\n");
+    char *parent = malloc(FILELENGTH);
+    for(int i = 0; i < path_length; i++) {
+      printf("%s\n", path);
+      strcpy(parent, path);
+      strcat(path, splitPath[i]);
+      int openDir;
+      if(dirContains(parent, splitPath[i]) == TRUE) {
+        if(i == path_length-1) {
+          file = f_open(parent, splitPath[i], OREAD);
+          int n;
+          int size = FILELENGTH;
+          char buffer[size+1];
+          if(file != -1) {
+            while((n = f_read(&buffer, size, 1, file)) != 0) {
+              buffer[n] = '\0';
+              printf("%s", buffer);
+            }
+          } else {
+            printf("cat: %s - no such file or directory\n", files[j]);
+          }
+          f_close(file);
+          break;
+        } else {
+          if((openDir = f_opendir(path)) == -1) {
+            fprintf(stderr, "cat: error opening %s\n", splitPath[i]);
+            return;
+          }
+        }
+      } else {
+        fprintf(stderr, "cat: error opening %s\n", files[j]);
+        return;
+      }
+      
+      strcat(path, "/");
+    }
+    for(int i = 0; i < path_length; i++) {
+      free(splitPath[i]);
+    }
+    free(splitPath);
+    free(parent);
+    free(path);
+  }
+}
+
+void cat2(char **files, int num) {
+  int file;
   for(int i = 0; i < num; i++) {
     file = f_open(workingDirectory, files[i], OREAD);
     int n;
@@ -499,29 +555,6 @@ void cat(char **files, int num) {
       printf("cat: %s - no such file or directory\n", files[i]);
     }
     f_close(file);
-    //printf("\n");
-  }
-}
-
-void cat2(char **files, int num) {
-  FILE *file;
-  for(int i = 0; i < num; i++) {
-    printf("cat on %s\n", files[i]);
-    file = fopen(files[i], "r");
-    int n;
-    int size = FILELENGTH;
-    char buffer[size+1];
-    //printf("Made it to here, file is %d\n", file);
-    if(file != NULL) {
-      printf("Starting reading\n");
-      while((n = fread(&buffer, 1, size, file)) != 0) {
-        buffer[n] = '\0';
-        printf("%s", buffer);
-      }
-    } else {
-      printf("cat: %s - no such file or directory\n", files[i]);
-    }
-    printf("\n");
   }
 }
 
@@ -530,56 +563,6 @@ Prints a set amount of each file at a time (doesn't support line-by-line paging)
 Press q + enter to exit
 */
 void more2(char **files, int num) {
-  printf("Press enter to page through, and q + enter to exit\n");
-  FILE *file;
-  char c;
-  //for each file...
-  for(int i = 0; i < num; i++) {
-    file = fopen(files[i], "r");
-    //if multiple files, print the name before each
-    if(num > 1) {
-      printf("==========\n%s\n==========\n", files[i]);
-    }
-    if(file == NULL) {
-      printf("more: %s - no such file or directory\n", files[i]);
-    } else {
-      int n;
-      int size = 100;
-      char buffer[size+1];
-      //read a set number of bytes at a time
-      while((n = fread(&buffer, 1, size, file)) != 0) {
-        //printf("Head of buffer\n");
-        buffer[n] = '\0';
-        printf("%s", buffer);
-        //continue until the next new line
-        if(buffer[size-1] != '\n') {
-          char smallBuffer[] = {'\0', '\0'};
-          while((n = fread(&smallBuffer, 1, 1, file)) != 0 && smallBuffer[0] != '\n') {
-            printf("%s", smallBuffer);
-          }
-        }
-
-        c = getchar();
-        //if q typed, exit
-        if(c == 'q') {
-          return;
-        }
-
-      }
-    }
-    printf("\n");
-    if(i != num-1) {
-      c = getchar();
-      //if q typed, exit
-      if(c == 'q') {
-        return;
-      }
-    }
-  }
-}
-
-//getting conditional jump etc in valgrind, investigate
-void more(char **files, int num) {
   printf("Press enter to page through, and q + enter to exit\n");
   int file;
   char c;
@@ -628,6 +611,101 @@ void more(char **files, int num) {
   }
 }
 
+void more_content(char *path, char *filename, int num) {
+  printf("Press enter to page through, and q + enter to exit\n");
+  int file;
+  char c;
+    file = f_open(path, filename, OREAD);
+    //if multiple files, print the name before each
+    if(num > 1) {
+      printf("==========\n%s\n==========\n", filename);
+    }
+    if(file == -1) {
+      printf("more: %s - no such file or directory\n", filename);
+    } else {
+      int n;
+      int size = 100;
+      char buffer[size+1];
+      //read a set number of bytes at a time
+      while((n = f_read(&buffer, 1, size, file)) != 0) {
+        //printf("Head of buffer\n");
+        buffer[n] = '\0';
+        printf("%s", buffer);
+        //continue until the next new line
+        if(buffer[size-1] != '\n') {
+          char smallBuffer[] = {'\0', '\0'};
+          while((n = f_read(&smallBuffer, 1, 1, file)) != 0 && smallBuffer[0] != '\n') {
+            printf("%s", smallBuffer);
+          }
+        }
+
+        c = getchar();        
+        //if q typed, exit
+        if(c == 'q') {
+          return;
+        }
+      }
+    }
+    //printf("\n");
+    f_close(file);
+}
+
+//getting conditional jump etc in valgrind, investigate
+void more(char **files, int num) {
+  printf("Press enter to page through, and q + enter to exit\n");
+  int file;
+  char c;
+  //for each file...
+  for(int j = 0; j < num; j++) {
+    
+    char *path = malloc(FILELENGTH);
+    strcpy(path, workingDirectory);
+    char **splitPath = split(files[j], FALSE);
+
+    int path_length = pathLength2(files[j]);
+
+    printf("successive paths\n");
+    char *parent = malloc(FILELENGTH);
+    for(int i = 0; i < path_length; i++) {
+      printf("%s\n", path);
+      strcpy(parent, path);
+      strcat(path, splitPath[i]);
+      int openDir;
+      if(dirContains(parent, splitPath[i]) == TRUE) {
+        if(i == path_length-1) {
+          more_content(parent, splitPath[i], num);
+          break;
+        } else {
+          if((openDir = f_opendir(path)) == -1) {
+            fprintf(stderr, "more: error opening %s\n", splitPath[i]);
+            return;
+          }
+        }
+      } else {
+        fprintf(stderr, "more: error opening %s\n", files[j]);
+        return;
+      }
+      
+      strcat(path, "/");
+    }
+    for(int i = 0; i < path_length; i++) {
+      free(splitPath[i]);
+    }
+    free(splitPath);
+    free(parent);
+    free(path);
+
+    printf("\n");
+    if(j != num-1) {
+      c = getchar();
+      //if q typed, exit
+      if(c == 'q') {
+        return;
+      }
+    }
+  }
+}
+
 void rm(char *fileName, int directory) {
   printf("doing rm - filename: %s\n", fileName);
   //printf("doing mkdir - filename: %s\n", fileName);
@@ -648,6 +726,10 @@ void rm(char *fileName, int directory) {
   }
   //move back to last entry
   entries--;
+
+  if(entries == 0 && fileName != NULL) {
+    entries = 1;
+  }
 
   printf("successive paths\n");
   char *parent = malloc(FILELENGTH);
@@ -954,7 +1036,6 @@ int main(int argc, char *argv[]){
             cd(filePath);
           }
         }
-
 
       if(0 == strcmp(currentArgs[0], "rm")) {
         int argPos = 1;
