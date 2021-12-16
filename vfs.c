@@ -736,7 +736,7 @@ DirEntry* f_readdir(int dirp)
     if(child->inodeNum == -1) {
         find_entry->where++;
     }
-    char *previousName = malloc(256);
+    //char *previousName = malloc(256);
     for (int i = 0; i < find_entry->where; i++)
     {
         child = (DirEntry*)(child->nextFile);
@@ -744,13 +744,13 @@ DirEntry* f_readdir(int dirp)
             m_error = E_EOF;
             return NULL;
         }
-        if(strcmp(child->fileName, "\0") == 0) {
+        /*if(strcmp(child->fileName, "\0") == 0) {
             m_error = E_EOF;
             return NULL;
-        }
+        }*/
     }
     dirTable[dirp]->where++;
-    free(previousName);
+    //free(previousName);
     return child;
 }
 

@@ -358,10 +358,10 @@ void mkdir(char *fileName) {
 
   entries = path_length - 2;
 
-  printf("successive paths\n");
+  //printf("successive paths\n");
   char *parent = malloc(FILELENGTH);
   for(int i = 0; i <= entries; i++) {
-    printf("%s\n", path);
+    //printf("%s\n", path);
     strcpy(parent, path);
     strcat(path, splitPath[i]);
     int openDir;
@@ -978,11 +978,11 @@ int main(int argc, char *argv[]){
       }      
     }
 
-    printf("====\n");
+    /*printf("====\n");
     for(int i = 0; i < number; i++) {
       printf("%s\n", toks[i]);
     } 
-    printf("====\n");
+    printf("====\n");*/
 
     int tokensExamined = 0;
     int commandsRun = 0;
