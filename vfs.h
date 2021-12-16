@@ -57,6 +57,7 @@ typedef struct vnode {
     struct vnode* child;
     struct vnode* next;
     int permissions;
+    int chmod;
     int type;
     //fs_driver_t* driver;  
     int inode;			/* hard coding for unix */
