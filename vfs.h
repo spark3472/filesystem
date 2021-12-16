@@ -4,6 +4,9 @@
 
 #define MAX_FT_SIZE 10000
 
+extern int m_error;
+enum errors{E_BADARGS, E_EOF, E_FNF, E_DNF, FT_FULL, E_FLAG, E_DISK, E_CHMOD};
+
 #define FAILURE -1
 #define SUCCESS 0
 
@@ -144,6 +147,7 @@ int f_unmount(const char *dir, int flags);
 
 int remove_mention_of(char *path, char *filename);
 
+int change_chmod(char* path, int chmod);
 
 
 
