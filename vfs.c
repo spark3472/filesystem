@@ -9,7 +9,7 @@
 #include <math.h>
 
 int m_error;
-enum errors{E_BADARGS, E_EOF, E_FNF, E_DNF, FT_FULL, E_FLAG, E_DISK};
+enum errors{E_BADARGS, E_EOF, E_FNF, E_DNF, FT_FULL, E_FLAG, E_DISK, E_CHMOD};
 //make tree root global in shell
 vnode_t *root;
 int num_open_files = 0;
@@ -23,6 +23,8 @@ void* disk;
 void* second_disk;
 int in_second_disk = 0;
 char* name_second_disk;
+
+int is_super = 1;
 
 //create signal handle/register to clean up fp and buffer upon user ending program?
 void sighandler(int signo)
@@ -158,6 +160,7 @@ int f_open(char* path, char* filename, int flag)
             strcpy(new_file->name, filename);
             new_file->permissions = flag;
             new_file->type = FILE_TYPE;
+            new_file->chmod = 644;
             
             new_file->inode = super->free_inode; //assign inode for file
 
@@ -241,10 +244,16 @@ int f_open(char* path, char* filename, int flag)
     }
 }
 
+int change_chmod(char* path, int chmod)
+{
+    vnode_t* to_change = find(path);
+    to_change->chmod = chmod;
+}
+
 
 size_t f_read(void *ptr, size_t size, int num, int fd)
 {
-
+    
 
 
     size_t data_to_read = size * num;
@@ -256,6 +265,28 @@ size_t f_read(void *ptr, size_t size, int num, int fd)
         //fprintf(stderr, "f_read: no file found\n");
         return FAILURE;
     }
+
+    if (is_super)//if user is super user, do they have permission?
+    {
+        int permission = to_read.vn->chmod;
+        permission = permission - permission%100;
+        permission = permission/100;
+        if (permission < 4)
+        {
+            m_error = E_CHMOD;
+            return FAILURE;
+        }
+    }else//if its public user, does public user have permission?
+    {
+        int permission = to_read.vn->chmod;
+        permission = permission - permission%10;
+        if (permission < 4)
+        {
+            m_error = E_CHMOD;
+            return FAILURE;
+        }
+    }
+
     void* node;
     if (to_read.vn->disk == 1)
     {
@@ -307,9 +338,40 @@ size_t f_write(void *data, size_t size, int num, int fd)
     size_t writeSize = size;
     int writeNum = num;
 
-    
 
-    superblock *super = (superblock*)(disk + 512);
+    if (is_super)//if user is super user, do they have permission?
+    {
+        int permission = to_write.vn->chmod;
+        permission = permission - permission%100;
+        permission = permission/100;
+        if (permission != 2 && permission != 3 && permission != 6 && permission != 7)//not allowed to write
+        {
+            m_error = E_CHMOD;
+            return FAILURE;
+        }
+    }else//if its public user, does public user have permission?
+    {
+        int permission = to_write.vn->chmod;
+        permission = permission - permission%10;
+        if (permission != 2 && permission != 3 && permission != 6 && permission != 7)//not allowed to write
+        {
+            m_error = E_CHMOD;
+            return FAILURE;
+        }
+    }
+
+    void* node;
+    void* choose_disk;
+    if (to_write.vn->disk == 1)
+    {   
+        choose_disk = second_disk;
+        node = second_disk + inode_start + fileTable[fd].vn->inode*sizeof(inode);
+    }else{
+        choose_disk = disk;
+        node = disk + inode_start + fileTable[fd].vn->inode*sizeof(inode);
+    }
+
+    superblock *super = (superblock*)(choose_disk + 512);
 
     //file doesn't exist
     if(to_write.vn == NULL) {
@@ -325,16 +387,7 @@ size_t f_write(void *data, size_t size, int num, int fd)
     }
 
     //MODIFY make error if no free space left on disk and trying to write over file size
-    void* node;
-    void* choose_disk;
-    if (to_write.vn->disk == 1)
-    {   
-        choose_disk = second_disk;
-        node = second_disk + inode_start + fileTable[fd].vn->inode*sizeof(inode);
-    }else{
-        choose_disk = disk;
-        node = disk + inode_start + fileTable[fd].vn->inode*sizeof(inode);
-    }
+    
     inode* iNode = (inode*)node;
 
     int currentBlocksUsed = (int)ceil((double)(iNode->size)/blockSize);
@@ -544,6 +597,7 @@ int f_stat(struct stat_t *buf, int fd)
 int f_remove(char *path, char *filename)
 {
 
+
     vnode_t* vn = malloc(sizeof(vnode_t));
     vn = find(path);
 
@@ -551,7 +605,7 @@ int f_remove(char *path, char *filename)
         m_error = E_FNF;
         return FAILURE;
     }
-
+    
     if(vn->type != FILE_TYPE) {
         m_error = E_BADARGS;
         return FAILURE;
@@ -742,6 +796,7 @@ int f_mkdir(char* path, char* filename, int mode)
     new->type = DIRECTORY_TYPE;
     new->next = NULL;
     new->child = NULL;
+    new->chmod = 777;
 
     vnode_t* find_end = dircurrent->child;
     if(find_end == NULL) {
@@ -986,17 +1041,20 @@ int f_mount(char* filename, char* path_to_put)
         DirEntry* dir = (DirEntry*)rootData;
         root->inode = 0;
         root->disk = 0;
+        root->chmod = 700;
         root->child = malloc(sizeof(vnode_t));
         strcpy(root->child->name, dir->fileName);
         root->child->inode = dir->inodeNum;
 
         vnode_t* temp = root->child;
         temp->disk = 0;
+        temp->chmod = 777;
         for (dir = dir->nextFile; dir != NULL; dir = dir->nextFile)
         {
             temp->next = malloc(sizeof(vnode_t));
             temp = temp->next;
             temp->disk = 0;
+            temp->chmod = 777;
             strcpy(temp->name, dir->fileName);
             temp->inode = dir->inodeNum;
         }
