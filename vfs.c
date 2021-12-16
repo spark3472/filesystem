@@ -463,6 +463,10 @@ size_t f_write(void *data, size_t size, int num, int fd)
 
     memcpy(node, data, data_to_write);
     fileTable[fd].offset += data_to_write;
+
+    rewind(firstDisk);
+    fwrite(disk, firstsize, 1, firstDisk);
+
     return data_to_write;
 }
 
@@ -865,6 +869,10 @@ int f_mkdir(char* path, char* filename, int mode)
     first_entry->inodeNum = -1;
 
     //free(dircurrent);
+
+    rewind(firstDisk);
+    fwrite(disk, firstsize, 1, firstDisk);
+
     return 0;
 
 }
@@ -1081,8 +1089,8 @@ int f_mount(char* filename, char* path_to_put)
             temp->chmod = 777;
             strcpy(temp->name, dir->fileName);
             temp->inode = dir->inodeNum;
-            entries++;
             elderSibling = dir;
+            entries++;
         }
     }else{
         vnode_t* to_put = find(path_to_put);
