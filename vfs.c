@@ -590,7 +590,7 @@ int f_stat(struct stat_t *buf, int fd)
     buf->n_links = iNode->nlink;
     buf->size = iNode->size;
     buf->uid = iNode->uid;
-    buf->permissions = to_stat.vn->permissions;
+    buf->permissions = to_stat.vn->chmod;
     buf->mtime = iNode->mtime;
 
     return 0;
