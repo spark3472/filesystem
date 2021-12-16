@@ -73,16 +73,24 @@ unmount a specified file system
 <h5>redirection</h5>
 <h5>ls</h5>
 <h5>mkdir</h5>
-<h5>rmdir</h5>
+
 <h5>cd</h5>
+Moves up/down the directory tree, supports . and ..
 <h5>pwd</h5>
 <h5>cat</h5>
+Prints the contents of a file
 <h5>more</h5>
-<h5>rm</h5>
+Prints the contents of a file one page at a time
+
 
 <h3>Partially Implemented</h3>
 <h5>chmod</h5>
 change_chmod() in vfs.c changes the permissions for a file or directory, but not integreated with shell.
+
+<h5>rm</h5>
+Removes a file or directory (with -r flag) - buggy, especially with removing directories. Sometimes it doesn't remove the directory, or also removes everything in the parent directory
+<h5>rmdir</h5>
+Removes a directory (calls rm with -r)
 
 
 
