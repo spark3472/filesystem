@@ -39,6 +39,7 @@ https://askubuntu.com/questions/1022923/cannot-open-visual-studio-code
 #include "vfs.h"
 
 #define FILELENGTH 256
+#define PATHLENGTH 15
 
 int mounted;
 FILE *disk;
@@ -147,7 +148,7 @@ TOKENIZER init_tokenizer(char* line){
 TOKENIZER t;
 TOKENIZER u;
 char* line;
-char* shell_prompt = "shell> ";
+char* shell_prompt;
 int parser(){
   int n = 0;
   //valgrind doesn't like this line??
@@ -210,21 +211,42 @@ char** getArgs(int start, int end){
 
 char **directoryPath;
 
+int pathLength(char *path_split) {
+  int length = 1;
+  char *token;
+  char *path = malloc(FILELENGTH);
+  strcpy(path, path_split);
+  token = strtok(path, "/");
+  while(token != NULL) {
+    token = strtok(NULL, "/");
+    length++;
+  }
+  free(path);
+  return length;
+}
+
 char** split(char *path_split, int directory) {
-  char **splitPath = malloc(FILELENGTH);
+  char **splitPath = malloc(sizeof(char*) * PATHLENGTH);
   char *token;
   char *path = malloc(FILELENGTH);
   strcpy(path, path_split);
   int count = 0;
-  printf("Tokens:\n");
+  //printf("Tokens:\n");
+  //add root to the list
+  /*if(path_split[0] == '/') {
+    splitPath[count] = malloc(FILELENGTH);
+    strcpy(splitPath[count], "/");
+    count++;
+  }*/
   token = strtok(path, "/");
   while(token != NULL) {
-    splitPath[count] = token;
-    printf("%s\n", token);
+    splitPath[count] = malloc(FILELENGTH);
+    strcpy(splitPath[count], token);
+    //printf("%s\n", token);
     token = strtok(NULL, "/");
     count++;
   }
-
+  free(path);
   return splitPath;
 }
 
@@ -244,12 +266,12 @@ int dirContains(char *dirPath, char *item) {
   
   int dir = f_opendir(dirPath);
   if(dir == -1) {
-    fprintf(stderr, "ls: error opening directory\n");
+    fprintf(stderr, "error opening directory\n");
     return -1;
   }
 
   if(f_rewinddir(dir) == -1) {
-    fprintf(stderr, "ls: error with directory\n");
+    fprintf(stderr, "error with directory\n");
     return -1;
   }
 
@@ -262,14 +284,14 @@ int dirContains(char *dirPath, char *item) {
     }
   }
 
-  f_closedir(dir);
+  //f_closedir(dir);
 
   return contains;
 }
 
 void ls(char *pathList, char flags[2]) {
   //printf("doing ls - filename: %s, flags: %s\n", pathList, flags);
-  getAbsPath(pathList, TRUE);
+  //getAbsPath(pathList, TRUE);
   char *path = malloc(FILELENGTH);
   if(strcmp(pathList, ".") == 0) {
     strcpy(path, workingDirectory);
@@ -303,7 +325,8 @@ void ls(char *pathList, char flags[2]) {
   }
   printf("\n");
 
-  f_closedir(dir);
+  free(path);
+  //f_closedir(dir);
   //support '.' and '..'
 }
 
@@ -320,8 +343,10 @@ void mkdir(char *fileName) {
   strcpy(path, workingDirectory);
   char **splitPath = split(fileName, TRUE);
 
+  int path_length = pathLength(fileName);
   int entries = 0;
   //printf("Split paths:\n");
+  //maybe edit
   while(splitPath[entries] != NULL) {
     //printf("%s\n", splitPath[entries]);
     entries++;
@@ -362,21 +387,15 @@ void mkdir(char *fileName) {
         return;
       }
     }
-    /*if(( openDir = f_opendir(path) ) != -1) {
-      if(i == entries) {
-        fprintf(stderr, "mkdir: cannot create directory %s because it already exists\n", fileName);
-        return;
-      }
-      //f_closedir(openDir);
-    } else {
-      if(f_mkdir(parent, splitPath[i], 777) == -1){
-        fprintf(stderr, "mkdir: error making directory %s\n", fileName);
-        return;
-      }
-    }*/
     
     strcat(path, "/");
   }
+  for(int i = 0; i < path_length; i++) {
+    free(splitPath[i]);
+  }
+  free(splitPath);
+  free(parent);
+  free(path);
 }
 
 void rmdir_new(char *fileName) {
@@ -384,10 +403,75 @@ void rmdir_new(char *fileName) {
 }
 
 void cd(char *filePath) {
-  printf("doing cd - filepath: %s\n", filePath);
-  //open new directory
-    //f_opendir?
-  //
+  char *path = malloc(FILELENGTH);
+  if(filePath[0] == '/') {
+    strcpy(path, filePath);
+  } else {
+    strcpy(path, workingDirectory);
+    if(strcmp(filePath, ".") != 0) {
+      strcat(path, filePath);
+    }
+  }
+
+  printf("doing cd - filepath: %s\n", path);
+
+  int path_length = pathLength(path);
+  char **splitPath = split(path, TRUE);
+  printf("Path length is %d\n", path_length);
+
+  printf("successive paths\n");
+  char *parent = malloc(FILELENGTH);
+  char *doubleparent = malloc(FILELENGTH);
+  strcpy(path, "/");
+  strcpy(parent, "/");
+  strcpy(doubleparent, "/");
+  for(int i = 0; i < path_length-1; i++) {
+    int openDir;
+    printf("%s\n", path);
+    
+    if(strcmp(splitPath[i], "..") != 0) {
+      strcpy(doubleparent, parent);
+      strcpy(parent, path);
+      strcat(path, splitPath[i]);
+
+      if(dirContains(parent, splitPath[i]) == TRUE) {
+        if(i == path_length) {
+          //desired outcome
+        } else {
+          if((openDir = f_opendir(path)) == -1) {
+            fprintf(stderr, "cd: error opening %s\n", splitPath[i]);
+            return;
+          }
+        }
+      } else {
+        fprintf(stderr, "cd: the following directory doesn't exist: %s\n", path);
+        return;
+      }
+      strcat(path, "/");
+    } else {
+      strcpy(path, parent);
+      strcpy(parent, doubleparent);
+      if((openDir = f_opendir(path)) == -1) {
+        fprintf(stderr, "cd: error opening %s\n", splitPath[i]);
+        return;
+      }
+    }
+    
+  }
+
+  strcpy(workingDirectory, path);
+  strcpy(parentDirectory, parent);
+  printf(". is %s, .. is %s\n", workingDirectory, parentDirectory);
+  strcpy(shell_prompt, workingDirectory);
+  strcat(shell_prompt, "> ");
+
+  for(int i = 0; i < path_length-1; i++) {
+    free(splitPath[i]);
+  }
+  free(splitPath);
+  free(doubleparent);
+  free(parent);
+  free(path);
   
 }
 
@@ -673,6 +757,9 @@ int main(int argc, char *argv[]){
 
   //int aftersemi = 0;
   
+  shell_prompt = malloc(maxPathSize);
+  strcpy(shell_prompt, workingDirectory);
+  strcat(shell_prompt, "> ");
 
   while(1){
     number = parser();
@@ -790,44 +877,59 @@ int main(int argc, char *argv[]){
         }
       }
 
-      if(0 == strcmp(currentArgs[0], "ls")) {
-        char flags[2] = "\0";
-        int argPos = 1;
-        int flagsSeen = 0;
-        char *fileName = malloc(FILELENGTH);
-        strcpy(fileName, ".");
+
+      if(0 == strcmp(currentArgs[0], "cd")) {
+        char *filePath = ".";
         int skip = FALSE;
         
-        //goes through each argument and classifies it as a filename or flag to feed to ls()
-        while(argPos < length) {
-          char *arg = currentArgs[argPos];
-          if(arg[0] == '-') {
-            if((arg[1] != 'l' || arg[1] != 'F') && arg[2] != '\0') {
-              printf("ls: invalid option -- '%s'\n'-l' and '-F' are the only supported flags.\n", arg);
-              skip = TRUE;
-              break;
-            }
-            flags[flagsSeen] = currentArgs[argPos][1];
-            flagsSeen++;
-          } else {
-            if(strcmp(fileName, ".") == 0) {
-              strcpy(fileName, arg);
-            } else {
-              printf("ls only supports listing one directory - please enter %s on a seperate line\n", arg);
-              break;
-            }
-          }
-          argPos++;
+        if(length == 2) {
+          filePath = currentArgs[1];
+        } else if(length > 2) {
+          printf("cd: too many arguments\n");
+          skip = TRUE;
         }
 
         if(skip == FALSE) {
-          ls(fileName, flags);
+          cd(filePath);
         }
-        free(fileName);
       }
 
+      if(0 == strcmp(currentArgs[0], "ls")) {
+          char flags[2] = "\0";
+          int argPos = 1;
+          int flagsSeen = 0;
+          char *fileName = malloc(FILELENGTH);
+          strcpy(fileName, ".");
+          int skip = FALSE;
+          
+          //goes through each argument and classifies it as a filename or flag to feed to ls()
+          while(argPos < length) {
+            char *arg = currentArgs[argPos];
+            if(arg[0] == '-') {
+              if((arg[1] != 'l' || arg[1] != 'F') && arg[2] != '\0') {
+                printf("ls: invalid option -- '%s'\n'-l' and '-F' are the only supported flags.\n", arg);
+                skip = TRUE;
+                break;
+              }
+              flags[flagsSeen] = currentArgs[argPos][1];
+              flagsSeen++;
+            } else {
+              if(strcmp(fileName, ".") == 0) {
+                strcpy(fileName, arg);
+              } else {
+                printf("ls only supports listing one directory - please enter %s on a seperate line\n", arg);
+                break;
+              }
+            }
+            argPos++;
+          }
 
-      
+          if(skip == FALSE) {
+            ls(fileName, flags);
+          }
+          free(fileName);
+        }
+
 
       //printf("Parent pgid: %d; ", getpgrp());
       pid_t pid;
@@ -895,7 +997,8 @@ int main(int argc, char *argv[]){
           /*char flags[2] = "\0";
           int argPos = 1;
           int flagsSeen = 0;
-          char *fileName = ".";
+          char *fileName = malloc(FILELENGTH);
+          strcpy(fileName, ".");
           int skip = FALSE;
           
           //goes through each argument and classifies it as a filename or flag to feed to ls()
@@ -922,7 +1025,8 @@ int main(int argc, char *argv[]){
 
           if(skip == FALSE) {
             ls(fileName, flags);
-          }*/
+          }
+          free(fileName);*/
         } else if(0 == strcmp(currentArgs[0], "chmod")) {
           int skip = FALSE;
           int directory = FALSE;
@@ -974,7 +1078,7 @@ int main(int argc, char *argv[]){
             printf("rmdir: please specify a directory name\n");
           }
         } else if(0 == strcmp(currentArgs[0], "cd")) {
-          char *filePath = NULL;
+          /*char *filePath = NULL;
           int skip = FALSE;
           
           if(length == 2) {
@@ -986,7 +1090,7 @@ int main(int argc, char *argv[]){
 
           if(skip == FALSE) {
             cd(filePath);
-          }
+          }*/
         } else if(0 == strcmp(currentArgs[0], "pwd")) {        
           if(length > 1) {
             printf("pwd: no arguments supported\n");

@@ -106,7 +106,7 @@ typedef struct dirent{
         //char           d_name[256]; /* Null-terminated filename */
 //};
 
-dirent dirTable[MAX_DT_SIZE];
+dirent *dirTable[MAX_DT_SIZE];
 
 
 int f_open( char* path, char* filename, int flag);
