@@ -49,10 +49,7 @@ vnode_t* find(char* path)
         const char delim[2] = "/";
 
         char* ptr = strtok(to_seperate, delim);
-        if (strcmp(ptr, name_second_disk) == 0)
-        {
-            in_second_disk = 1;
-        }
+        
         for (traverse = root->child; traverse != NULL; traverse = traverse->next)
         {
             if (strcmp (traverse->name, ptr) == 0)
