@@ -746,7 +746,7 @@ void rm(char *fileName, int directory) {
             return;
           }
         } else {
-          if(f_remove(path, splitPath[i]) == -1) {
+          if(f_remove(parent, splitPath[i]) == -1) {
             fprintf(stderr, "rm: can't remove file\n");
             return;
           }
@@ -918,6 +918,7 @@ int main(int argc, char *argv[]){
 
     //if user types "exit", leave
     if(0 == strcmp(toks[0], "exit")) {
+      f_unmount("/", 0);
       exit(0);
     }
 
@@ -1390,6 +1391,8 @@ int main(int argc, char *argv[]){
   free(toks);
   free(line);
 
+
+  printf("unmounting\n");
   f_unmount("/", 0);
 
   free(workingDirectory);

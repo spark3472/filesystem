@@ -20,6 +20,7 @@ int data_start;
 int inode_start;
 FILE* firstDisk;
 void* disk;
+long firstsize;
 void* second_disk;
 int in_second_disk = 0;
 char* name_second_disk;
@@ -39,6 +40,11 @@ vnode_t* find(char* path)
     vnode_t* traverse = root;
 
     if(root == NULL) {
+        return NULL;
+    }
+
+    if(path == NULL) {
+        m_error = E_BADARGS;
         return NULL;
     }
 
@@ -840,7 +846,7 @@ int f_mkdir(char* path, char* filename, int mode)
     inode* this = (inode*)next_free;
     super->free_inode = this->next_inode;
     this->nlink = 1;
-    this->size = 0;
+    this->size = 4096;
 
     //assign a block to the new directory
     void* free_block = choose_disk + data_start + super->free_block * blockSize;//find block
@@ -936,6 +942,11 @@ int f_rmdir(char* path, char *filename)
         return FAILURE;
     }
 
+    /*if(vn->child != NULL) {
+        fprintf(stderr, "Directory is not empty\n");
+        return FAILURE;
+    }*/
+
     void* node = disk + inode_start + vn->inode * sizeof(inode);
     if(in_second_disk == 1)
     {
@@ -975,9 +986,11 @@ int f_rmdir(char* path, char *filename)
     super->free_inode = vn->inode;
 
     char *end = strrchr(path, '/');
+    end++;
     int length = strlen(path) - strlen(end);
     char *newPath = malloc(256);
     strncpy(newPath, path, length);
+    newPath[length] = '\0';
     remove_mention_of(newPath, filename);
     
 }
@@ -1010,12 +1023,12 @@ int f_mount(char* filename, char* path_to_put)
         }
         //get size of disk
         fseek(fp, 0L, SEEK_END);
-        long size = ftell(fp);
+        firstsize = ftell(fp);
         rewind(fp);
         
         //read into buffer
-        disk = malloc(size);
-        fread(disk, 1, size, fp);
+        disk = malloc(firstsize);
+        fread(disk, 1, firstsize, fp);
     
     }
 
@@ -1098,6 +1111,8 @@ int f_unmount(const char *dir, int flags)
     //corner case where other disk is mounted at root after the initial one - could maybe ignore
     if(strcmp(dir, "/") == 0) {
         printf("unmounting root\n");
+        //rewind(firstDisk);
+        //fwrite(disk, firstsize, 1, firstDisk);
         free(disk);
         free(root->child);
         free(root);
