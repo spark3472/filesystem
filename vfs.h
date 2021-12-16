@@ -52,7 +52,7 @@ struct stat_t {
 //};
 
 typedef struct vnode {
-    int vnode_number;
+    int disk;
     char name[255];
     struct vnode* child;
     struct vnode* next;
