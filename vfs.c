@@ -8,7 +8,7 @@
 #include <signal.h>
 #include <math.h>
 
-int m_error;
+extern int m_error;
 enum errors{E_BADARGS, E_EOF, E_FNF, E_DNF, FT_FULL, E_FLAG, E_DISK, E_CHMOD};
 //make tree root global in shell
 vnode_t *root;
