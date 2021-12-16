@@ -99,7 +99,10 @@ Removes a directory (calls rm with -r)
 <h5>ls with flags</h5>
 <h5>mount</h5>
 <h5>unmount</h5>
-
+<h5>symbolic chmod</h5>
 
 <h3>Known Bugs and Limitations</h3>
 Only pressing enter on the shell will cause a memory error.
+Does not support indirect blocks.
+Chmod is absolute only.
+
