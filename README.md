@@ -62,17 +62,32 @@ make a new directory at the specified location
 <h5>f_rmdir</h5>
 delete a specified directory. Be sure to remove entire contents and the contents of all subdirectories from the filesystem. Do NOT simply remove pointers to directory.
 <h5>f_mount</h5>
-mount a specified file system into your directory tree at a specified location.
+mount a specified file system into your directory tree at a specified location. (cannot mount more than one disk)
 <h5>f_umount</h5>
 unmount a specified file system
  
 <h4>Shell</h4>
-
+<h5>redirection</h5>
+<h5>ls</h5>
+<h5>mkdir</h5>
+<h5>rmdir</h5>
+<h5>cd</h5>
+<h5>pwd</h5>
+<h5>cat</h5>
+<h5>more</h5>
+<h5>rm</h5>
 
 <h3>Partially Implemented</h3>
+<h5>chmod</h5>
+change_chmod() in vfs.c changes the permissions for a file or directory, but not integreated with shell.
+
+
 
 
 <h3>Not Implemented</h3>
+<h5>ls with flags</h5>
+<h5>mount</h5>
+<h5>unmount</h5>
 
 
 <h3>Known Bugs and Limitations</h3>
