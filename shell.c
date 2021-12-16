@@ -354,6 +354,8 @@ void mkdir(char *fileName) {
   //move back to last entry
   entries--;
 
+  entries = path_length - 2;
+
   printf("successive paths\n");
   char *parent = malloc(FILELENGTH);
   for(int i = 0; i <= entries; i++) {
@@ -390,7 +392,7 @@ void mkdir(char *fileName) {
     
     strcat(path, "/");
   }
-  for(int i = 0; i < path_length; i++) {
+  for(int i = 0; i < path_length-2; i++) {
     free(splitPath[i]);
   }
   free(splitPath);
@@ -626,8 +628,68 @@ void more(char **files, int num) {
   }
 }
 
-void rm(char *fileName) {
+void rm(char *fileName, int directory) {
   printf("doing rm - filename: %s\n", fileName);
+  //printf("doing mkdir - filename: %s\n", fileName);
+  //check if directory already exists
+  //deal with permissions later
+  //deal with .. later
+  char *path = malloc(FILELENGTH);
+  strcpy(path, workingDirectory);
+  char **splitPath = split(fileName, TRUE);
+
+  int path_length = pathLength(fileName);
+  int entries = 0;
+  //printf("Split paths:\n");
+  //maybe edit
+  while(splitPath[entries] != NULL) {
+    //printf("%s\n", splitPath[entries]);
+    entries++;
+  }
+  //move back to last entry
+  entries--;
+
+  printf("successive paths\n");
+  char *parent = malloc(FILELENGTH);
+  for(int i = 0; i < entries; i++) {
+    printf("%s\n", path);
+    strcpy(parent, path);
+    strcat(path, splitPath[i]);
+    int openDir;
+    if(dirContains(parent, splitPath[i]) == TRUE) {
+      if(i == entries-1) {
+        if(directory == TRUE) {
+          if(f_rmdir(path, splitPath[i]) == -1) {
+            fprintf(stderr, "rm: can't remove directory\n");
+            return;
+          }
+        } else {
+          if(f_remove(path, splitPath[i]) == -1) {
+            fprintf(stderr, "rm: can't remove file\n");
+            return;
+          }
+        }
+        return;
+      } else {
+        if((openDir = f_opendir(path)) == -1) {
+          fprintf(stderr, "rm: error opening %s\n", splitPath[i]);
+          return;
+        }
+      }
+
+    } else {
+      fprintf(stderr, "rm: cannot remove file/directory - %s: No such file or directory\n", fileName);
+      return;
+    }
+    
+    strcat(path, "/");
+  }
+  for(int i = 0; i < path_length; i++) {
+    //free(splitPath[i]);
+  }
+  free(splitPath);
+  free(parent);
+  free(path);
 }
 
 void mount(char *fileSys, char *location) {
@@ -877,59 +939,54 @@ int main(int argc, char *argv[]){
         }
       }
 
-
       if(0 == strcmp(currentArgs[0], "cd")) {
-        char *filePath = ".";
-        int skip = FALSE;
-        
-        if(length == 2) {
-          filePath = currentArgs[1];
-        } else if(length > 2) {
-          printf("cd: too many arguments\n");
-          skip = TRUE;
-        }
-
-        if(skip == FALSE) {
-          cd(filePath);
-        }
-      }
-
-      if(0 == strcmp(currentArgs[0], "ls")) {
-          char flags[2] = "\0";
-          int argPos = 1;
-          int flagsSeen = 0;
-          char *fileName = malloc(FILELENGTH);
-          strcpy(fileName, ".");
+          char *filePath = "/";
           int skip = FALSE;
           
-          //goes through each argument and classifies it as a filename or flag to feed to ls()
-          while(argPos < length) {
-            char *arg = currentArgs[argPos];
-            if(arg[0] == '-') {
-              if((arg[1] != 'l' || arg[1] != 'F') && arg[2] != '\0') {
-                printf("ls: invalid option -- '%s'\n'-l' and '-F' are the only supported flags.\n", arg);
-                skip = TRUE;
-                break;
-              }
-              flags[flagsSeen] = currentArgs[argPos][1];
-              flagsSeen++;
-            } else {
-              if(strcmp(fileName, ".") == 0) {
-                strcpy(fileName, arg);
-              } else {
-                printf("ls only supports listing one directory - please enter %s on a seperate line\n", arg);
-                break;
-              }
-            }
-            argPos++;
+          if(length == 2) {
+            filePath = currentArgs[1];
+          } else if(length > 2) {
+            printf("cd: too many arguments\n");
+            skip = TRUE;
           }
 
           if(skip == FALSE) {
-            ls(fileName, flags);
+            cd(filePath);
           }
-          free(fileName);
         }
 
+
+      if(0 == strcmp(currentArgs[0], "rm")) {
+        int argPos = 1;
+        //removes each file given
+        int directory = FALSE;
+        if(length > 1) {
+          if(strcmp(currentArgs[1], "-r") == 0) {
+            directory = TRUE;
+          }
+        }
+        while(argPos < length) {
+          char *arg = currentArgs[argPos];
+          rm(arg, directory);
+          argPos++;
+        }
+        //checks if no file name was given
+        if(length == 1) {
+          printf("rm: please specify a file name\n");
+        }
+      }
+
+      if(0 == strcmp(currentArgs[0], "cat")) {
+          if(strcmp(redirection, "in") != 0) {
+            if(length == 1) {
+              printf("cat: please enter file(s) to see\n");
+            } else {
+              cat(currentArgs+1, length - 1);
+            }
+          } else {
+            cat(&fileRedirect, 1);
+          }
+        }
 
       //printf("Parent pgid: %d; ", getpgrp());
       pid_t pid;
@@ -994,7 +1051,7 @@ int main(int argc, char *argv[]){
         }
         
         if(0 == strcmp(currentArgs[0], "ls")) {
-          /*char flags[2] = "\0";
+          char flags[2] = "\0";
           int argPos = 1;
           int flagsSeen = 0;
           char *fileName = malloc(FILELENGTH);
@@ -1026,7 +1083,7 @@ int main(int argc, char *argv[]){
           if(skip == FALSE) {
             ls(fileName, flags);
           }
-          free(fileName);*/
+          free(fileName);
         } else if(0 == strcmp(currentArgs[0], "chmod")) {
           int skip = FALSE;
           int directory = FALSE;
@@ -1078,7 +1135,7 @@ int main(int argc, char *argv[]){
             printf("rmdir: please specify a directory name\n");
           }
         } else if(0 == strcmp(currentArgs[0], "cd")) {
-          /*char *filePath = NULL;
+          /*char *filePath = "/";
           int skip = FALSE;
           
           if(length == 2) {
@@ -1097,7 +1154,7 @@ int main(int argc, char *argv[]){
           }
           pwd();
         } else if(0 == strcmp(currentArgs[0], "cat")) {
-          if(strcmp(redirection, "in") != 0) {
+          /*if(strcmp(redirection, "in") != 0) {
             if(length == 1) {
               printf("cat: please enter file(s) to see\n");
             } else {
@@ -1105,7 +1162,7 @@ int main(int argc, char *argv[]){
             }
           } else {
             cat(&fileRedirect, 1);
-          }
+          }*/
         } else if(0 == strcmp(currentArgs[0], "more")) {
           if(strcmp(redirection, "in") != 0) {
             if(length == 1) {
@@ -1117,7 +1174,7 @@ int main(int argc, char *argv[]){
             more(&fileRedirect, 1);
           }
         } else if(0 == strcmp(currentArgs[0], "rm")) {
-          int argPos = 1;
+          /*int argPos = 1;
           //removes each file given
           while(argPos < length) {
             char *arg = currentArgs[argPos];
@@ -1127,7 +1184,7 @@ int main(int argc, char *argv[]){
           //checks if no file name was given
           if(length == 1) {
             printf("rm: please specify a file name\n");
-          }
+          }*/
         } else if(0 == strcmp(currentArgs[0], "mount")) {
           if(length == 3) {
             mount(currentArgs[1], currentArgs[2]);
