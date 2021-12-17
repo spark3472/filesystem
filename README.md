@@ -7,6 +7,11 @@ CS355 Final Project HW7
 Library: <br >
 make <br  >
 make setup1 for users or make setup for no users
+<h3>Log-in</h3>
+superuser: bmcadmin <br >
+password: bmcadmin <br >
+user: bmcguest <br >
+password: bmcguest <br >
 
 <h2> Overview of File System </h2>
 
@@ -51,8 +56,6 @@ move to a specified position in a file
 move to the start of the file
 <h5>f_stat</h5>
 retrieve information about a file
-<h5>f_remove</h5> 
-delete a file
 <h5>f_opendir</h5>
 recall that directories are handled as special cases of files. open a “directory file” for reading, and return a directory handle.
 <h5>f_readdir</h5> 
@@ -61,13 +64,8 @@ returns a pointer to a “directory entry” structure representing the next dir
 close an open directory file
 <h5>f_mkdir</h5>
 make a new directory at the specified location
-<h5>f_rmdir</h5>
-delete a specified directory. Be sure to remove entire contents and the contents of all subdirectories from the filesystem. Do NOT simply remove pointers to directory.
-<h5>f_mount</h5>
-mount a specified file system into your directory tree at a specified location. (cannot mount more than one disk)
-<h5>f_umount</h5>
-unmount a specified file system
- 
+
+
 <h4>Shell</h4>
 <h5>cd</h5>
 Moves up/down the directory tree, supports . and ..
@@ -80,6 +78,8 @@ Prints the contents of a file one page at a time
 
 
 <h3>Partially Implemented</h3>
+<h5>f_rmdir and f_remove</h5>
+Are implemented but are unstable.
 <h5>chmod</h5>
 change_chmod() in vfs.c changes the permissions for a file or directory, but not integreated with shell.
 
@@ -105,7 +105,7 @@ No flags supported
 
 <h3>Known Bugs and Limitations</h3>
 Does not support indirect blocks.
-Chmod is absolute only.
+Chmod is implemented only in the virtual file system and it is also only implemented absolutely. 
 Creation of directories and files is buggy (see above)
 
 
