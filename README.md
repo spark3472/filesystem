@@ -5,8 +5,9 @@ CS355 Final Project HW7
 
 <h2>To Compile and Run</h2>
 Library: <br >
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:. <br >
 make <br  >
-make setup1 for users or make setup for no users
+make setup2 for users or make setup for no users
 <h3>Log-in</h3>
 superuser: bmcadmin <br >
 password: bmcadmin <br >
